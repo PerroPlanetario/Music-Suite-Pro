@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entonación Vocal con Referencia Manual</title>
+    <style>
+        :root {
+            --bg-color: #121214;
+            --card-bg: #1e1e24;
+            --primary: #00e5ff;
+            --secondary: #ff0055;
+            --success: #00ff88;
+            --warning: #ffcc00;
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --border-radius: 16px;
+            --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Tarjeta Principal */
+        .tuner-card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .display-area {
+            margin-bottom: 20px;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .note-name {
+            font-size: 4.5rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--text-main);
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+            margin-bottom: 5px;
+        }
+
+        .frequency {
+            font-size: 1.1rem;
+            color: var(--primary);
+            font-family: monospace;
+        }
+
+        /* Indicador de afinación */
+        .tuning-indicator {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+            height: 40px;
+            position: relative;
+            background: rgba(0,0,0,0.2);
+            border-radius: 20px;
+        }
+
+        .center-line {
+            width: 2px;
+            height: 100%;
+            background-color: var(--text-muted);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        .needle {
+            width: 4px;
+            height: 100%;
+            background-color: var(--secondary);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: left 0.1s linear, background-color 0.2s;
+            z-index: 2;
+            border-radius: 2px;
+        }
+
+        .needle.in-tune {
+            background-color: var(--success);
+            box-shadow: 0 0 15px var(--success);
+        }
+
+        .status-text {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+            min-height: 20px;
+            margin-top: 10px;
+        }
+        
+        .status-flat { color: var(--secondary); }
+        .status-sharp { color: var(--warning); }
+        .status-perfect { color: var(--success); }
+
+        /* Visualizador de Onda */
+        .waveform-container {
+            width: 100%;
+            height: 70px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #333;
+            margin-bottom: 15px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Controles */
+        .controls-area {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        select {
+            background-color: #2a2a35;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 1rem;
+            flex-grow: 1;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        select:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            border: none;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        button#startBtn {
+            background-color: var(--primary);
+            color: #000;
+            width: 100%;
+            padding: 12px;
+        }
+        
+        button#startBtn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 229, 255, 0.4);
+        }
+
+        button#startBtn.active {
+            background-color: var(--secondary);
+            color: #fff;
+        }
+
+        button#playRefBtn {
+            background-color: #444;
+            color: #fff;
+            border: 1px solid transparent;
+            min-width: 100px;
+        }
+
+        button#playRefBtn:hover {
+            background-color: #555;
+        }
+
+        button#playRefBtn.playing {
+            background-color: var(--success);
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+        }
+
+        button svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* Referencia de notas (Visual en pantalla) */
+        .note-reference {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-top: 1px solid #333;
+        }
+
+        .ref-note {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .ref-note.active {
+            color: var(--text-main);
+            background-color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        /* Mensajes */
+        .message-box {
+            background-color: rgba(255, 0, 85, 0.1);
+            border: 1px solid var(--secondary);
+            color: var(--secondary);
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Entonación Vocal</h1>
+        <p class="subtitle">Visualizador + Referencia Manual</p>
+    </header>
+
+    <main>
+        <div class="message-box" id="messageBox"></div>
+
+        <!-- Tarjeta del Afinador (Micrófono) -->
+        <section class="tuner-card">
+            <div class="display-area">
+                <div class="note-name" id="noteDisplay">--</div>
+                <div class="frequency" id="freqDisplay">0.0 Hz</div>
+            </div>
+
+            <div class="tuning-indicator">
+                <div class="center-line"></div>
+                <div class="needle" id="needle"></div>
+            </div>
+
+            <div class="status-text" id="statusText">Esperando...</div>
+
+            <div class="waveform-container">
+                <canvas id="waveformCanvas"></canvas>
+            </div>
+
+            <div class="note-reference" id="noteRef"></div>
+        </section>
+
+        <!-- Área de Controles (Micrófono y Audio Manual) -->
+        <section class="controls-area">
+            
+            <!-- Fila 1: Selector de Nota Manual y Reproductor -->
+            <div class="control-row">
+                <select id="noteSelect">
+                    <!-- Se llena con JS -->
+                </select>
+                <button id="playRefBtn" title="Reproducir nota seleccionada">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <span>Tocar</span>
+                </button>
+            </div>
+
+            <!-- Fila 2: Botón Micrófono -->
+            <button id="startBtn">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                <span>Iniciar Micrófono</span>
+            </button>
+
+        </section>
+    </main>
+
+    <script>
+        /**
+         * Configuración
+         */
+
+        const notes = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
+        const A4 = 440;
+        const A4_INDEX = 57;
+        
+        // DOM
+        const startBtn = document.getElementById('startBtn');
+        const playRefBtn = document.getElementById('playRefBtn');
+        const noteSelect = document.getElementById('noteSelect');
+        const noteDisplay = document.getElementById('noteDisplay');
+        const freqDisplay = document.getElementById('freqDisplay');
+        const needle = document.getElementById('needle');
+        const statusText = document.getElementById('statusText');
+        const canvas = document.getElementById('waveformCanvas');
+        const canvasCtx = canvas.getContext('2d');
+        const messageBox = document.getElementById('messageBox');
+        const noteRefContainer = document.getElementById('noteRef');
+
+        // Variables de Audio (Micrófono)
+        let audioContext;
+        let analyser;
+        let mediaStreamSource;
+        let bufferLength;
+        let dataArray;
+        let isRunning = false;
+        let animationId;
+
+        // Variables de Audio (Referencia Manual)
+        let refOscillator = null;
+        let refGain = null;
+        let isPlayingRef = false;
+
+        // Inicializar Select y Referencias
+        function initUI() {
+            // Llenar Select con notas desde Do 3 hasta Si 5 (Rango vocal cómodo)
+            const startOctave = 3;
+            const endOctave = 5;
+            
+            let selectedOptionIndex = -1;
+
+            for (let oct = startOctave; oct <= endOctave; oct++) {
+                notes.forEach((note, index) => {
+                    const option = document.createElement('option');
+                    option.value = `${index}-${oct}`; // Guardamos índice y octava
+                    option.text = `${note} ${oct}`;
+                    noteSelect.appendChild(option);
+
+                    // Marcar La 4 por defecto (nota de afinación estándar)
+                    if (note === "La" && oct === 4 && selectedOptionIndex === -1) {
+                        selectedOptionIndex = option.index;
+                    }
+                });
+            }
+            if(selectedOptionIndex >= 0) noteSelect.selectedIndex = selectedOptionIndex;
+
+            // Inicializar barra de notas visuales
+            const scale = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
+            scale.forEach(note => {
+                const span = document.createElement('span');
+                span.className = 'ref-note';
+                span.id = `ref-${note}`;
+                span.innerText = note;
+                noteRefContainer.appendChild(span);
+            });
+        }
+
+        function showMessage(msg) {
+            messageBox.textContent = msg;
+            messageBox.style.display = 'block';
+            setTimeout(() => { messageBox.style.display = 'none'; }, 4000);
+        }
+
+        // --- Lógica del Afinador (Micrófono) ---
+
+        async function startMic() {
+            try {
+                if (isRunning) {
+                    stopMic();
+                    return;
+                }
+
+                // Crear contexto si no existe (se reutiliza para el oscilador)
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } else if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { echoCancellation: true, autoGainControl: false, noiseSuppression: false } 
+                });
+
+                mediaStreamSource = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                bufferLength = analyser.fftSize;
+                dataArray = new Float32Array(bufferLength);
+
+                mediaStreamSource.connect(analyser);
+
+                isRunning = true;
+                startBtn.classList.add('active');
+                startBtn.querySelector('span').innerText = "Detener Micrófono";
+                
+                updatePitch();
+
+            } catch (err) {
+                console.error(err);
+                if (err.name === 'NotAllowedError') showMessage('Permiso de micrófono denegado.');
+                else showMessage('Error: ' + err.message);
+            }
+        }
+
+        function stopMic() {
+            if (mediaStreamSource) {
+                mediaStreamSource.disconnect();
+                mediaStreamSource = null;
+            }
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            
+            // Reset UI pero no borramos el contexto por si el oscilador está sonando
+            noteDisplay.innerText = "--";
+            freqDisplay.innerText = "0.0 Hz";
+            statusText.innerText = "Pausado";
+            statusText.className = "status-text";
+            needle.style.left = "50%";
+            needle.classList.remove('in-tune');
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            startBtn.classList.remove('active');
+            startBtn.querySelector('span').innerText = "Iniciar Micrófono";
+            document.querySelectorAll('.ref-note').forEach(el => el.classList.remove('active'));
+        }
+
+        // --- Lógica del Oscilador (Referencia Manual) ---
+
+        function toggleRefTone() {
+            if (isPlayingRef) {
+                stopRefTone();
+            } else {
+                playRefTone();
+            }
+        }
+
+        function getSelectedFrequency() {
+            // Obtener valor del select (formato "indice-octava")
+            const parts = noteSelect.value.split('-');
+            const noteIndex = parseInt(parts[0]);
+            const octave = parseInt(parts[1]);
+
+            // Calcular frecuencia exacta
+            // MIDI number = (octave + 1) * 12 + noteIndex
+            const midiNumber = (octave + 1) * 12 + noteIndex;
+            return A4 * Math.pow(2, (midiNumber - A4_INDEX) / 12);
+        }
+
+        function playRefTone() {
+            // Crear contexto si no existe (aunque no haya micrófono activo)
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } else if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            const freq = getSelectedFrequency();
+
+            refOscillator = audioContext.createOscillator();
+            refGain = audioContext.createGain();
+
+            // Onda triangular suena más "musical" y menos electrónica que sine
+            refOscillator.type = 'triangle';
+            refOscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+
+            refOscillator.connect(refGain);
+            refGain.connect(audioContext.destination);
+
+            // Volumen bajo para no saturar
+            refGain.gain.setValueAtTime(0, audioContext.currentTime);
+            refGain.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+
+            refOscillator.start();
+            isPlayingRef = true;
+
+            // UI
+            playRefBtn.classList.add('playing');
+            playRefBtn.querySelector('span').innerText = "Detener";
+        }
+
+        function stopRefTone() {
+            if (refOscillator && refGain) {
+                refGain.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1);
+                const oscToStop = refOscillator;
+                setTimeout(() => {
+                    oscToStop.stop();
+                    oscToStop.disconnect();
+                }, 100);
+                refOscillator = null;
+                refGain = null;
+            }
+            isPlayingRef = false;
+            
+            playRefBtn.classList.remove('playing');
+            playRefBtn.querySelector('span').innerText = "Tocar";
+        }
+
+        // Si cambiamos la nota en el select mientras suena, actualizamos el pitch
+        noteSelect.addEventListener('change', () => {
+            if (isPlayingRef && refOscillator) {
+                const newFreq = getSelectedFrequency();
+                refOscillator.frequency.setTargetAtTime(newFreq, audioContext.currentTime, 0.1);
+            }
+        });
+
+        // --- Algoritmos de Pitch ---
+
+        function autoCorrelate(buf, sampleRate) {
+            let SIZE = buf.length;
+            let rms = 0;
+            for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+            rms = Math.sqrt(rms / SIZE);
+            if (rms < 0.01) return -1; // Silencio
+
+            let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+            for (let i = 0; i < SIZE / 2; i++) { if (Math.abs(buf[i]) < thres) { r1 = i; break; } }
+            for (let i = 1; i < SIZE / 2; i++) { if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; } }
+            buf = buf.slice(r1, r2);
+            SIZE = buf.length;
+
+            let c = new Array(SIZE).fill(0);
+            for (let i = 0; i < SIZE; i++) { for (let j = 0; j < SIZE - i; j++) { c[i] = c[i] + buf[j] * buf[j + i]; } }
+            let d = 0; while (c[d] > c[d + 1]) d++;
+            let maxval = -1, maxpos = -1;
+            for (let i = d; i < SIZE; i++) { if (c[i] > maxval) { maxval = c[i]; maxpos = i; } }
+            let T0 = maxpos;
+
+            let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+            let a = (x1 + x3 - 2 * x2) / 2; let b = (x3 - x1) / 2;
+            if (a) T0 = T0 - b / (2 * a);
+            return sampleRate / T0;
+        }
+
+        function noteFromPitch(frequency) {
+            return Math.round(12 * (Math.log(frequency / A4) / Math.log(2)) + A4_INDEX);
+        }
+
+        function frequencyFromNoteNumber(note) {
+            return A4 * Math.pow(2, (note - A4_INDEX) / 12);
+        }
+
+        function centsOffFromPitch(frequency, note) {
+            return Math.floor(1200 * Math.log(frequency / frequencyFromNoteNumber(note)) / Math.log(2));
+        }
+
+        function updatePitch() {
+            if (!isRunning) return;
+            analyser.getFloatTimeDomainData(dataArray);
+            drawWaveform(dataArray);
+
+            const ac = autoCorrelate(dataArray, audioContext.sampleRate);
+
+            if (ac === -1) {
+                statusText.innerText = "Escuchando...";
+                statusText.className = "status-text";
+                needle.style.left = "50%";
+                needle.classList.remove('in-tune');
+            } else {
+                const pitch = ac;
+                const noteNum = noteFromPitch(pitch);
+                const noteName = notes[noteNum % 12];
+                const octave = Math.floor(noteNum / 12) - 1;
+                const cents = centsOffFromPitch(pitch, noteNum);
+
+                noteDisplay.innerText = `${noteName}${octave}`;
+                freqDisplay.innerText = Math.round(pitch) + " Hz";
+
+                let needlePos = cents; 
+                if (needlePos < -50) needlePos = -50;
+                if (needlePos > 50) needlePos = 50;
+                needle.style.left = `${50 + needlePos}%`;
+
+                if (Math.abs(cents) < 10) {
+                    statusText.innerText = "¡Perfecto!"; statusText.className = "status-text status-perfect"; needle.classList.add('in-tune');
+                } else if (cents < 0) {
+                    statusText.innerText = "Bajo"; statusText.className = "status-text status-flat"; needle.classList.remove('in-tune');
+                } else {
+                    statusText.innerText = "Alto"; statusText.className = "status-text status-sharp"; needle.classList.remove('in-tune');
+                }
+
+                // Actualizar barra visual de notas (solo naturales)
+                const parts = noteName.split('#');
+                const simpleNote = parts[0];
+                const refEl = document.getElementById(`ref-${simpleNote}`);
+                document.querySelectorAll('.ref-note').forEach(el => el.classList.remove('active'));
+                if (refEl) refEl.classList.add('active');
+            }
+            animationId = requestAnimationFrame(updatePitch);
+        }
+
+        function drawWaveform(data) {
+            if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+                canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+            }
+            canvasCtx.fillStyle = '#000'; canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            canvasCtx.lineWidth = 2; canvasCtx.strokeStyle = '#00e5ff'; canvasCtx.beginPath();
+            const sliceWidth = canvas.width * 1.0 / bufferLength; let x = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                const v = data[i] * 5; const y = (canvas.height / 2) + (v * canvas.height / 2);
+                if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+                x += sliceWidth;
+            }
+            canvasCtx.lineTo(canvas.width, canvas.height / 2); canvasCtx.stroke();
+        }
+
+        startBtn.addEventListener('click', startMic);
+        playRefBtn.addEventListener('click', toggleRefTone);
+        initUI();
+
+    </script>
+</body>
+</html>
