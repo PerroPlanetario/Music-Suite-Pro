@@ -16,10 +16,36 @@
     <main class="main-container">
         <h2>Afinador</h2>
         
-        <!-- Aquí iría el HTML del afinador (nota, frecuencia, aguja, canvas) -->
+        <div class="card tuner-display">
+            <div class="note-name" id="noteDisplay">--</div>
+            <div class="frequency" id="freqDisplay">0.0 Hz</div>
+            
+            <div class="tuning-meter">
+                <div class="tuning-center-mark"></div>
+                <div class="tuning-needle" id="needle"></div>
+            </div>
+            
+            <div class="status-text" id="statusText">Listo</div>
+            
+            <div class="waveform-box">
+                <canvas id="waveCanvas"></canvas>
+            </div>
+
+            <button id="tunerToggleBtn" class="primary">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                <span>Iniciar Micrófono</span>
+            </button>
+        </div>
+
+        <!-- Referencia Rápida (Opcional, mantenida de la versión original) -->
         <div class="card">
-            <p>Lógica del afinador cargada desde app.js</p>
-            <button class="primary" onclick="initAudio()">Activar Audio</button>
+            <h3>Referencia Rápida</h3>
+            <div style="display:flex; gap:10px; margin-top:10px; align-items:center; justify-content: center;">
+                <select id="refNoteSelect" style="width: 120px;">
+                    <!-- Se llena con JS -->
+                </select>
+                <button id="playRefBtn" class="secondary" style="width: auto;">Tocar</button>
+            </div>
         </div>
 
     </main>

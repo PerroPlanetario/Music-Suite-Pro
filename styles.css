@@ -148,3 +148,85 @@ input, select {
     .nav-menu.open { display: flex; }
     .key-details { grid-template-columns: 1fr; }
 }
+/* --- ESTILOS ESPECÍFICOS DEL AFINADOR --- */
+.tuner-display { text-align: center; }
+
+.note-name { 
+    font-size: 5rem; 
+    font-weight: 700; 
+    color: var(--text-main); 
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.3); 
+    line-height: 1; 
+}
+
+.frequency { 
+    font-size: 1.2rem; 
+    color: var(--primary); 
+    font-family: monospace; 
+    margin-bottom: 20px; 
+}
+
+.tuning-meter {
+    position: relative; 
+    height: 60px; 
+    background: linear-gradient(90deg, 
+        var(--secondary) 0%, 
+        rgba(255,255,255,0.1) 20%, 
+        rgba(255,255,255,0.1) 80%, 
+        var(--warning) 100%); 
+    border-radius: 30px; 
+    margin-bottom: 15px; 
+    overflow: hidden; 
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+}
+
+.tuning-center-mark { 
+    position: absolute; 
+    left: 50%; 
+    top: 0; 
+    bottom: 0; 
+    width: 4px; 
+    background-color: var(--text-main); 
+    transform: translateX(-50%); 
+    z-index: 2; 
+}
+
+.tuning-needle { 
+    position: absolute; 
+    top: 0; 
+    bottom: 0; 
+    width: 6px; 
+    background-color: var(--text-main); 
+    left: 50%; 
+    transform: translateX(-50%); 
+    z-index: 3; 
+    border-radius: 3px; 
+    transition: left 0.1s linear; 
+}
+
+.status-text { 
+    text-align: center; 
+    font-size: 1.2rem; 
+    font-weight: 600; 
+    height: 1.5em; 
+    margin-bottom: 20px; 
+}
+
+.status-flat { color: var(--secondary); } 
+.status-sharp { color: var(--warning); } 
+.status-perfect { color: var(--success); text-shadow: 0 0 10px rgba(0,255,136,0.4); }
+
+.waveform-box { 
+    width: 100%; 
+    height: 80px; 
+    background: #000; 
+    border-radius: 8px; 
+    border: 1px solid #333; 
+    margin-bottom: 20px; 
+}
+
+/* Responsive para móvil */
+@media (max-width: 600px) {
+    .note-name { font-size: 4rem; }
+    .waveform-box { height: 60px; }
+}
