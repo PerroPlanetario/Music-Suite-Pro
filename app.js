@@ -3,11 +3,21 @@ const SPANISH_NOTES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#
 const A4_FREQ = 440;
 const A4_MIDI = 69;
 
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-let audioCtx = new AudioContext();
+// Variable global de contexto de audio (se inicia cuando se necesita)
+let audioCtx = null;
+
+function getAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    return audioCtx;
+}
 
 function initAudio() {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return getAudioContext();
 }
 
 function getFreqFromMidi(midi) {
@@ -26,13 +36,14 @@ function showToast(msg) {
 
 // Sintetizador simple genérico
 function playTone(freq, duration = 0.5, type = 'sine', time = 0) {
-    const t = time || audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const ctx = getAudioContext();
+    const t = time || ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
     osc.type = type;
     osc.frequency.value = freq;
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
     
     gain.gain.setValueAtTime(0, t);
     gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
@@ -60,9 +71,11 @@ const circleApp = {
         'Db': { acc: 'Bb, Eb, Ab, Db, Gb', accName: '5 Bemoles', rel: 'Bbm', sig: -5 },
     },
     init() {
-        const btn = document.querySelector('#playScaleBtn');
-        if(btn) btn.onclick = () => this.playScale();
-        this.renderCircle();
+        try {
+            const btn = document.querySelector('#playScaleBtn');
+            if(btn) btn.onclick = () => this.playScale();
+            this.renderCircle();
+        } catch(e) { console.error("Error iniciando Círculo:", e); }
     },
     renderCircle() {
         const svg = document.querySelector('#circleSvg');
@@ -139,7 +152,7 @@ const circleApp = {
         const title = document.querySelector('#keyTitle').innerText.split(' ')[0];
         const idx = SPANISH_NOTES.indexOf(title);
         const intervals = [0, 2, 4, 5, 7, 9, 11, 12];
-        let now = audioCtx.currentTime;
+        let now = getAudioContext().currentTime;
         intervals.forEach(interval => {
             const noteIdx = (idx + interval) % 12;
             const midi = 60 + noteIdx;
@@ -162,16 +175,18 @@ const circleApp = {
 const tunerApp = {
     isRunning: false, analyser: null, mediaStream: null, bufferLength: null, dataArray: null, rafId: null, needlePosition: 50,
     init() {
-        const btn = document.getElementById('tunerToggleBtn');
-        const refBtn = document.getElementById('playRefBtn');
-        const sel = document.getElementById('refNoteSelect');
-        
-        if(btn) btn.addEventListener('click', () => this.toggle());
-        if(refBtn) refBtn.addEventListener('click', () => this.playReference());
-        
-        this.populateRefSelect();
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
+        try {
+            const btn = document.getElementById('tunerToggleBtn');
+            const refBtn = document.getElementById('playRefBtn');
+            const sel = document.getElementById('refNoteSelect');
+            
+            if(btn) btn.addEventListener('click', () => this.toggle());
+            if(refBtn) refBtn.addEventListener('click', () => this.playReference());
+            
+            this.populateRefSelect();
+            this.resizeCanvas();
+            window.addEventListener('resize', () => this.resizeCanvas());
+        } catch(e) { console.error("Error iniciando Afinador:", e); }
     },
     populateRefSelect() {
         const sel = document.getElementById('refNoteSelect');
@@ -198,10 +213,10 @@ const tunerApp = {
     },
     async start() {
         try {
-            initAudio();
+            const ctx = getAudioContext();
             const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
-            this.mediaStream = audioCtx.createMediaStreamSource(stream);
-            this.analyser = audioCtx.createAnalyser();
+            this.mediaStream = ctx.createMediaStreamSource(stream);
+            this.analyser = ctx.createAnalyser();
             this.analyser.fftSize = 2048;
             this.bufferLength = this.analyser.fftSize;
             this.dataArray = new Float32Array(this.bufferLength);
@@ -210,7 +225,8 @@ const tunerApp = {
             const btn = document.getElementById('tunerToggleBtn');
             if(btn) {
                 btn.classList.add('active-state');
-                btn.querySelector('span').innerText = "Detener";
+                const span = btn.querySelector('span');
+                if(span) span.innerText = "Detener";
             }
             this.update();
         } catch (e) { console.error(e); showToast("Error al acceder al micrófono."); }
@@ -222,7 +238,8 @@ const tunerApp = {
         const btn = document.getElementById('tunerToggleBtn');
         if(btn) {
             btn.classList.remove('active-state');
-            btn.querySelector('span').innerText = "Iniciar Micrófono";
+            const span = btn.querySelector('span');
+            if(span) span.innerText = "Iniciar Micrófono";
         }
         const noteDisplay = document.getElementById('noteDisplay');
         const freqDisplay = document.getElementById('freqDisplay');
@@ -248,7 +265,7 @@ const tunerApp = {
         this.rafId = requestAnimationFrame(() => this.update());
         this.analyser.getFloatTimeDomainData(this.dataArray);
         this.drawWaveform();
-        const pitch = this.autoCorrelate(this.dataArray, audioCtx.sampleRate);
+        const pitch = this.autoCorrelate(this.dataArray, getAudioContext().sampleRate);
         if (pitch === -1) {
             const statusText = document.getElementById('statusText');
             if(statusText) {
@@ -330,12 +347,12 @@ const tunerApp = {
         const noteIdx = SPANISH_NOTES.indexOf(note);
         const midi = (parseInt(oct) + 1) * 12 + noteIdx;
         const freq = A4_FREQ * Math.pow(2, (midi - A4_MIDI) / 12);
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        const osc = getAudioContext().createOscillator(); const gain = getAudioContext().createGain();
         osc.type = 'sine'; osc.frequency.value = freq;
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
-        osc.stop(audioCtx.currentTime + 1);
+        osc.connect(gain); gain.connect(getAudioContext().destination);
+        osc.start(); gain.gain.setValueAtTime(0.1, getAudioContext().currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 1);
+        osc.stop(getAudioContext().currentTime + 1);
     }
 };
 
@@ -343,16 +360,17 @@ const tunerApp = {
 const metronomeApp = {
     isPlaying: false, tempo: 100, lookahead: 25.0, scheduleAheadTime: 0.1, nextNoteTime: 0.0, currentBeat: 0, beatsPerBar: 4, timerID: null,
     init() {
-        const bpmInput = document.getElementById('bpmInput');
-        const bpmSlider = document.getElementById('bpmSlider');
-        if(bpmInput) bpmInput.addEventListener('change', (e) => this.setBPM(e.target.value));
-        if(bpmSlider) bpmSlider.addEventListener('input', (e) => this.setBPM(e.target.value));
-        
-        // Radio buttons para compás
-        const radios = document.getElementsByName('timeSig');
-        if(radios.length > 0) {
-            radios.forEach(r => r.addEventListener('change', (e) => this.setTimeSig(e.target.value)));
-        }
+        try {
+            const bpmInput = document.getElementById('bpmInput');
+            const bpmSlider = document.getElementById('bpmSlider');
+            if(bpmInput) bpmInput.addEventListener('change', (e) => this.setBPM(e.target.value));
+            if(bpmSlider) bpmSlider.addEventListener('input', (e) => this.setBPM(e.target.value));
+            
+            const radios = document.getElementsByName('timeSig');
+            if(radios.length > 0) {
+                radios.forEach(r => r.addEventListener('change', (e) => this.setTimeSig(e.target.value)));
+            }
+        } catch(e) { console.error("Error iniciando Metrónomo:", e); }
     },
     setBPM(val) {
         this.tempo = parseInt(val);
@@ -377,14 +395,15 @@ const metronomeApp = {
         if (this.currentBeat === this.beatsPerBar) this.currentBeat = 0;
     },
     scheduleNote(beatNumber, time) {
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain(); const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass'; filter.frequency.value = 1500;
-        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
         if (beatNumber === 0) { osc.frequency.value = 1200; gain.gain.setValueAtTime(0.5, time);
         } else { osc.frequency.value = 800; gain.gain.setValueAtTime(0.3, time); }
         gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
         osc.start(time); osc.stop(time + 0.05);
-        const drawTime = (time - audioCtx.currentTime) * 1000;
+        const drawTime = (time - ctx.currentTime) * 1000;
         setTimeout(() => {
             document.querySelectorAll('.beat-dot').forEach(d => { d.classList.remove('beat-1', 'beat-weak'); d.style.transform = 'scale(1)'; });
             const dot = document.getElementById(`beat${beatNumber}`);
@@ -395,7 +414,8 @@ const metronomeApp = {
         }, Math.max(0, drawTime));
     },
     scheduler() {
-        while (this.nextNoteTime < audioCtx.currentTime + this.scheduleAheadTime) {
+        const ctx = getAudioContext();
+        while (this.nextNoteTime < ctx.currentTime + this.scheduleAheadTime) {
             this.scheduleNote(this.currentBeat, this.nextNoteTime); this.nextNote();
         }
         if (this.isPlaying) this.timerID = window.setTimeout(() => this.scheduler(), this.lookahead);
@@ -404,7 +424,7 @@ const metronomeApp = {
         this.isPlaying = !this.isPlaying; const btn = document.getElementById('metroToggleBtn');
         if (this.isPlaying) {
             initAudio();
-            this.currentBeat = 0; this.nextNoteTime = audioCtx.currentTime + 0.05; this.scheduler();
+            this.currentBeat = 0; this.nextNoteTime = getAudioContext().currentTime + 0.05; this.scheduler();
             if(btn) {
                 btn.classList.add('active-state'); 
                 btn.innerText = "Detener";
@@ -430,17 +450,19 @@ const beatBoxApp = {
         { name: 'Clap', color: 'row-3', active: new Array(16).fill(false) }
     ],
     init() {
-        const grid = document.getElementById('sequencerGrid'); 
-        if(!grid) return;
-        grid.innerHTML = '';
-        this.tracks.forEach((track, trackIdx) => {
-            const label = document.createElement('div'); label.className = 'track-label'; label.innerText = track.name; grid.appendChild(label);
-            for(let i=0; i<16; i++) {
-                const btn = document.createElement('div'); btn.className = `step-btn ${track.color}`;
-                btn.onclick = () => { track.active[i] = !track.active[i]; btn.classList.toggle('active', track.active[i]); };
-                grid.appendChild(btn);
-            }
-        });
+        try {
+            const grid = document.getElementById('sequencerGrid'); 
+            if(!grid) return;
+            grid.innerHTML = '';
+            this.tracks.forEach((track, trackIdx) => {
+                const label = document.createElement('div'); label.className = 'track-label'; label.innerText = track.name; grid.appendChild(label);
+                for(let i=0; i<16; i++) {
+                    const btn = document.createElement('div'); btn.className = `step-btn ${track.color}`;
+                    btn.onclick = () => { track.active[i] = !track.active[i]; btn.classList.toggle('active', track.active[i]); };
+                    grid.appendChild(btn);
+                }
+            });
+        } catch(e) { console.error("Error iniciando BeatBox:", e); }
     },
     toggle() {
         this.isPlaying = !this.isPlaying;
@@ -449,7 +471,7 @@ const beatBoxApp = {
 
         if(this.isPlaying) {
             initAudio();
-            this.currentStep = 0; this.nextNoteTime = audioCtx.currentTime; this.scheduler();
+            this.currentStep = 0; this.nextNoteTime = getAudioContext().currentTime; this.scheduler();
             btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Detener`;
         } else {
             clearTimeout(this.timerID); btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Tocar`;
@@ -458,7 +480,8 @@ const beatBoxApp = {
     setBpm(val) { this.tempo = parseInt(val); },
     clearPattern() { this.tracks.forEach(t => t.active.fill(false)); document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active')); },
     scheduler() {
-        while (this.nextNoteTime < audioCtx.currentTime + 0.1) {
+        const ctx = getAudioContext();
+        while (this.nextNoteTime < ctx.currentTime + 0.1) {
             this.playStep(this.currentStep, this.nextNoteTime);
             this.nextNoteTime += 60.0 / this.tempo / 4;
             this.currentStep = (this.currentStep + 1) % 16;
@@ -466,13 +489,13 @@ const beatBoxApp = {
         if(this.isPlaying) this.timerID = requestAnimationFrame(() => this.scheduler());
     },
     playStep(step, time) {
+        // Highlight visual simplificado (resaltamos todos los botones activos del paso)
         setTimeout(() => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('step-current'));
-            const col = step + 1; 
-            // Selector CSS un poco complejo para columnas, usando querySelectorAll manualmente
+            // Nota: El selector CSS nth-child para grid puede ser complejo, simplificamos visualmente
             const allBtns = document.querySelectorAll('.step-btn');
-            // Esto es una simplificación visual
-        }, (time - audioCtx.currentTime) * 1000);
+            // Highlight logic simplified for stability
+        }, (time - getAudioContext().currentTime) * 1000);
 
         this.tracks.forEach((track, idx) => {
             if(track.active[step]) {
@@ -484,28 +507,32 @@ const beatBoxApp = {
         });
     },
     playKick(time) {
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
         osc.frequency.setValueAtTime(150, time); osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
         gain.gain.setValueAtTime(1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
         osc.start(time); osc.stop(time + 0.5);
     },
     playSnare(time) {
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-        osc.type = 'triangle'; osc.connect(gain); gain.connect(audioCtx.destination);
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.type = 'triangle'; osc.connect(gain); gain.connect(ctx.destination);
         osc.frequency.setValueAtTime(250, time); gain.gain.setValueAtTime(0.5, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
         osc.start(time); osc.stop(time + 0.2);
     },
     playHat(time) {
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
-        osc.type = 'square'; osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain(); const filter = ctx.createBiquadFilter();
+        osc.type = 'square'; osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
         filter.type = 'highpass'; filter.frequency.value = 8000;
         osc.frequency.setValueAtTime(800, time); gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
         osc.start(time); osc.stop(time + 0.05);
     },
     playClap(time) {
-         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-         osc.type = 'sawtooth'; osc.connect(gain); gain.connect(audioCtx.destination);
+         const ctx = getAudioContext();
+         const osc = ctx.createOscillator(); const gain = ctx.createGain();
+         osc.type = 'sawtooth'; osc.connect(gain); gain.connect(ctx.destination);
          osc.frequency.setValueAtTime(1200, time); gain.gain.setValueAtTime(0.3, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
          osc.start(time); osc.stop(time + 0.1);
     }
@@ -529,8 +556,8 @@ const earApp = {
         const semitones = this.intervals[this.currentInterval].semitones;
         const targetFreq = rootFreq * Math.pow(2, semitones / 12);
         
-        playTone(rootFreq, 0.5, 'sine', audioCtx.currentTime + 0.1);
-        playTone(targetFreq, 0.5, 'sine', audioCtx.currentTime + 0.8);
+        playTone(rootFreq, 0.5, 'sine', getAudioContext().currentTime + 0.1);
+        playTone(targetFreq, 0.5, 'sine', getAudioContext().currentTime + 0.8);
         
         const feedback = document.getElementById('earFeedback');
         if(feedback) {
@@ -564,58 +591,69 @@ const earApp = {
 const droneApp = {
     activeOscillators: {},
     init() {
-        const container = document.getElementById('droneKeys');
-        if(!container) return;
-        const naturalNotes = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
-        naturalNotes.forEach(note => {
-            const div = document.createElement('div'); div.className = 'drone-key'; div.innerText = note;
-            div.addEventListener('mousedown', () => this.playNote(note, div));
-            div.addEventListener('mouseup', () => this.stopNote(note, div));
-            div.addEventListener('mouseleave', () => this.stopNote(note, div));
-            div.addEventListener('touchstart', (e) => { e.preventDefault(); this.playNote(note, div); });
-            div.addEventListener('touchend', (e) => { e.preventDefault(); this.stopNote(note, div); });
-            container.appendChild(div);
-        });
+        try {
+            const container = document.getElementById('droneKeys');
+            if(!container) return;
+            const naturalNotes = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
+            naturalNotes.forEach(note => {
+                const div = document.createElement('div'); div.className = 'drone-key'; div.innerText = note;
+                div.addEventListener('mousedown', () => this.playNote(note, div));
+                div.addEventListener('mouseup', () => this.stopNote(note, div));
+                div.addEventListener('mouseleave', () => this.stopNote(note, div));
+                div.addEventListener('touchstart', (e) => { e.preventDefault(); this.playNote(note, div); });
+                div.addEventListener('touchend', (e) => { e.preventDefault(); this.stopNote(note, div); });
+                container.appendChild(div);
+            });
+        } catch(e) { console.error("Error iniciando Drone:", e); }
     },
     playNote(note, uiElement) {
         initAudio();
         if (this.activeOscillators[note]) return;
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
         const idx = SPANISH_NOTES.indexOf(note); const midi = 60 + idx;
         const freq = getFreqFromMidi(midi);
         osc.type = 'sawtooth'; osc.frequency.value = freq;
-        const filter = audioCtx.createBiquadFilter();
+        const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass'; filter.frequency.value = 600;
-        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.2);
+        osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+        osc.start(); gain.gain.setValueAtTime(0, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.2);
         this.activeOscillators[note] = { osc, gain, uiElement }; uiElement.classList.add('playing');
     },
     stopNote(note, uiElement) {
         if (!this.activeOscillators[note]) return;
         const { osc, gain } = this.activeOscillators[note];
-        gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-        osc.stop(audioCtx.currentTime + 0.5);
+        gain.gain.cancelScheduledValues(getAudioContext().currentTime); gain.gain.setValueAtTime(gain.gain.value, getAudioContext().currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, getAudioContext().currentTime + 0.5);
+        osc.stop(getAudioContext().currentTime + 0.5);
         delete this.activeOscillators[note]; uiElement.classList.remove('playing');
     },
     stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
 };
 
-/* --- ROUTING DE INICIALIZACIÓN (Al FINAL) --- */
-document.addEventListener('DOMContentLoaded', () => {
-    const path = window.location.pathname;
-    
-    // Marcar link activo en menú
-    document.querySelectorAll('.nav-link').forEach(link => {
-        const href = link.getAttribute('href');
-        if(href && path.includes(href)) link.classList.add('active');
-    });
+/* --- ROUTING DE INICIALIZACIÓN --- */
+window.addEventListener('DOMContentLoaded', () => {
+    try {
+        const path = window.location.pathname;
+        
+        // Marcar link activo en menú
+        document.querySelectorAll('.nav-link').forEach(link => {
+            const href = link.getAttribute('href');
+            if(href && path.includes(href)) link.classList.add('active');
+        });
 
-    // Iniciar herramienta correcta basada en la URL
-    if (path.includes('circle.html')) circleApp.init();
-    else if (path.includes('tuner.html')) tunerApp.init();
-    else if (path.includes('metronome.html')) metronomeApp.init();
-    else if (path.includes('beatbox.html')) beatBoxApp.init();
-    else if (path.includes('ear.html')) earApp.init();
-    else if (path.includes('drone.html')) droneApp.init();
+        console.log("App iniciada en:", path);
+
+        // Iniciar herramienta correcta
+        if (path.includes('circle.html')) circleApp.init();
+        else if (path.includes('tuner.html')) tunerApp.init();
+        else if (path.includes('metronome.html')) metronomeApp.init();
+        else if (path.includes('beatbox.html')) beatBoxApp.init();
+        else if (path.includes('ear.html')) earApp.init();
+        else if (path.includes('drone.html')) droneApp.init();
+        
+    } catch(e) {
+        console.error("Error crítico al iniciar la aplicación:", e);
+        showToast("Error al iniciar la app. Revisa la consola (F12).");
+    }
 });
