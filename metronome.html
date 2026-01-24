@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metrónomo - Studio Suite</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos extra específicos del metrónomo si fuera necesario */
+        .metronome-visual { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; height: 50px; align-items: center; }
+        .beat-dot { width: 40px; height: 40px; border-radius: 50%; background: #333; transition: all 0.1s; transform: scale(0.9); }
+        .beat-dot.active { transform: scale(1.2); }
+        .beat-dot.beat-1 { background: var(--secondary); box-shadow: 0 0 15px var(--secondary); }
+        .beat-dot.beat-weak { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+        .bpm-control { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .bpm-input { font-size: 2rem; width: 80px; text-align: center; font-weight: 700; background: #111; border: 1px solid #333; }
+        .bpm-slider { flex: 1; -webkit-appearance: none; height: 6px; background: #444; border-radius: 3px; outline: none; }
+        .bpm-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: var(--primary); border-radius: 50%; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <nav class="nav-bar">
+        <a href="index.html" class="nav-logo">← Volver</a>
+        <div class="nav-title">Metrónomo</div>
+    </nav>
+
+    <main class="main-container">
+        <h2>Metrónomo</h2>
+        <div class="card">
+            <div class="metronome-visual" id="metronomeVisuals">
+                <div class="beat-dot" id="beat0"></div>
+                <div class="beat-dot" id="beat1"></div>
+                <div class="beat-dot" id="beat2"></div>
+                <div class="beat-dot" id="beat3"></div>
+            </div>
+
+            <div class="bpm-control">
+                <button class="secondary" style="width:auto" onclick="metronomeApp.adjustBPM(-5)">-</button>
+                <input type="number" id="bpmInput" class="bpm-input" value="100" min="40" max="240">
+                <button class="secondary" style="width:auto" onclick="metronomeApp.adjustBPM(5)">+</button>
+            </div>
+            <input type="range" id="bpmSlider" class="bpm-slider" min="40" max="240" value="100">
+
+            <div style="margin: 20px 0; display:flex; justify-content:center; gap:20px;">
+                <label><input type="radio" name="timeSig" value="4" checked onchange="metronomeApp.setTimeSig(4)"> 4/4</label>
+                <label><input type="radio" name="timeSig" value="3" onchange="metronomeApp.setTimeSig(3)"> 3/4</label>
+            </div>
+
+            <button id="metroToggleBtn" class="primary" onclick="metronomeApp.toggle()">Iniciar Metrónomo</button>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

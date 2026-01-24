@@ -1,0 +1,150 @@
+:root {
+    --bg-color: #121214;
+    --sidebar-bg: #1a1a1e;
+    --card-bg: #1e1e24;
+    --primary: #00e5ff;
+    --secondary: #ff0055;
+    --success: #00ff88;
+    --warning: #ffcc00;
+    --text-main: #ffffff;
+    --text-muted: #a0a0a0;
+    --border-radius: 16px;
+    --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Navegación (Común para todas las páginas) */
+.nav-bar {
+    width: 100%;
+    background-color: var(--sidebar-bg);
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-logo {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.nav-menu {
+    display: flex;
+    gap: 15px;
+}
+
+.nav-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.nav-link:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+.nav-link.active { color: #000; background: var(--primary); }
+
+/* Contenedor Principal */
+.main-container {
+    flex: 1;
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1 { margin-bottom: 30px; text-align: center; }
+h2 { font-weight: 300; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 15px; width: 100%; text-align: center; }
+
+/* Componentes UI */
+.card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    width: 100%;
+    text-align: center;
+}
+
+button {
+    border: none; padding: 12px 24px; font-size: 1rem; font-weight: 600;
+    border-radius: 25px; cursor: pointer; transition: all 0.2s ease;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+button.primary { background-color: var(--primary); color: #000; }
+button.primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 229, 255, 0.4); }
+button.secondary { background-color: #333; color: #fff; }
+button.secondary:hover { background-color: #444; }
+
+input, select {
+    background-color: #2a2a35; color: #fff; border: 1px solid #444;
+    padding: 10px; border-radius: 8px; font-size: 1rem; outline: none;
+}
+
+/* Estilos Círculo de Quintas */
+.circle-wrapper {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    margin: 0 auto 30px auto;
+}
+.circle-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+.circle-segment { cursor: pointer; transition: all 0.3s; }
+.circle-segment:hover { filter: brightness(1.3); }
+.circle-segment text { fill: #fff; font-weight: bold; font-size: 10px; text-anchor: middle; dominant-baseline: middle; transform: rotate(90deg); } /* Corregir rotación texto */
+
+.key-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    text-align: left;
+}
+.detail-box {
+    background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;
+}
+.detail-label { color: var(--text-muted); font-size: 0.8rem; display: block; margin-bottom: 5px; }
+.detail-value { font-size: 1.1rem; font-weight: bold; color: var(--primary); }
+
+.chord-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px;
+}
+.chord-btn {
+    background: #2a2a35; border: 1px solid #444; color: #fff; padding: 10px;
+    border-radius: 8px; cursor: pointer; text-align: center;
+}
+.chord-btn:hover { background: var(--primary); color: #000; }
+
+/* Toast */
+.toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: var(--secondary); color: #fff; padding: 10px 20px;
+    border-radius: 20px; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 200;
+}
+.toast.show { opacity: 1; }
+
+/* Responsivo */
+@media (max-width: 600px) {
+    .nav-menu { display: none; position: absolute; top: 50px; left: 0; width: 100%; background: var(--sidebar-bg); flex-direction: column; padding: 10px; }
+    .nav-menu.open { display: flex; }
+    .key-details { grid-template-columns: 1fr; }
+}

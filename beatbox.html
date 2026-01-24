@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeatBox - Studio Suite</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .drum-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
+        .sequencer-grid {
+            display: grid;
+            grid-template-columns: 80px repeat(16, 1fr);
+            gap: 4px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .track-label { grid-column: 1 / 2; display: flex; align-items: center; font-weight: bold; font-size: 0.8rem; color: var(--text-muted); }
+        .step-btn { aspect-ratio: 1; background: #2a2a35; border: 1px solid #333; border-radius: 4px; cursor: pointer; transition: all 0.1s; }
+        .step-btn:hover { background: #3a3a45; }
+        .step-btn.active { background: var(--secondary); border-color: var(--secondary); box-shadow: 0 0 5px var(--secondary); }
+        .row-0 .step-btn.active { background: #ff5e5e; border-color: #ff5e5e; box-shadow: 0 0 5px #ff5e5e; }
+        .row-1 .step-btn.active { background: #ffcc00; border-color: #ffcc00; box-shadow: 0 0 5px #ffcc00; }
+        .row-2 .step-btn.active { background: #00e5ff; border-color: #00e5ff; box-shadow: 0 0 5px #00e5ff; }
+        .row-3 .step-btn.active { background: #00ff88; border-color: #00ff88; box-shadow: 0 0 5px #00ff88; }
+        .step-current { border: 2px solid #fff !important; z-index: 2; }
+    </style>
+</head>
+<body>
+
+    <nav class="nav-bar">
+        <a href="index.html" class="nav-logo">← Volver</a>
+        <div class="nav-title">BeatBox Studio</div>
+    </nav>
+
+    <main class="main-container">
+        <h2>BeatBox Studio</h2>
+        <div class="card">
+            <div class="drum-controls">
+                <button id="beatPlayBtn" class="primary" onclick="beatBoxApp.toggle()">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Tocar
+                </button>
+                <button class="secondary" onclick="beatBoxApp.clearPattern()">Limpiar</button>
+                <div style="display:flex; gap:10px; flex-grow:1; align-items:center;">
+                    <span style="color:var(--text-muted); font-size:0.8rem;">TEMPO</span>
+                    <input type="number" id="beatBpmInput" value="120" min="60" max="200" style="width: 60px; padding: 5px; text-align:center;" onchange="beatBoxApp.setBpm(this.value)">
+                </div>
+            </div>
+            <div class="sequencer-grid" id="sequencerGrid"></div>
+        </div>
+        <p style="text-align:center; color:var(--text-muted); font-size:0.9rem;">Haz clic en los cuadros para activar/desactivar sonidos.</p>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

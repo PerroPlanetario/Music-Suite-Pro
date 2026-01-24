@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone - Studio Suite</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .drone-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+        .drone-key { padding: 15px; background: #2a2a35; border: 1px solid #444; border-radius: 8px; text-align: center; cursor: pointer; font-weight: bold; transition: all 0.1s; }
+        .drone-key:active { transform: scale(0.95); }
+        .drone-key.playing { background: var(--success); color: #000; border-color: var(--success); box-shadow: 0 0 15px rgba(0,255,136,0.3); }
+    </style>
+</head>
+<body>
+
+    <nav class="nav-bar">
+        <a href="index.html" class="nav-logo">← Volver</a>
+        <div class="nav-title">Drone (Tono Pedal)</div>
+    </nav>
+
+    <main class="main-container">
+        <h2>Drone</h2>
+        <p style="color:var(--text-muted); text-align:center; margin-bottom:15px; font-size:0.9rem;">Mantén presionada una nota para generar un sonido continuo.</p>
+        <div class="card">
+            <div class="drone-keys" id="droneKeys"></div>
+            <div style="margin-top:20px; text-align:center;"><button class="secondary" onclick="droneApp.stopAll()">Detener Todo</button></div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
