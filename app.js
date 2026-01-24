@@ -1,9 +1,8 @@
-/* --- CONFIGURACIÓN --- */
+/* --- CONFIGURACIÓN Y UTILIDADES --- */
 const SPANISH_NOTES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
 const A4_FREQ = 440;
 const A4_MIDI = 69;
 
-/* --- UTILIDADES --- */
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = new AudioContext();
 
@@ -25,7 +24,7 @@ function showToast(msg) {
     setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-// Sintetizador simple
+// Sintetizador simple genérico
 function playTone(freq, duration = 0.5, type = 'sine', time = 0) {
     const t = time || audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
@@ -43,24 +42,7 @@ function playTone(freq, duration = 0.5, type = 'sine', time = 0) {
     osc.stop(t + duration);
 }
 
-/* --- INICIALIZACIÓN POR PÁGINA --- */
-document.addEventListener('DOMContentLoaded', () => {
-    const path = window.location.pathname;
-    
-    // Marcar link activo en menú
-    document.querySelectorAll('.nav-link').forEach(link => {
-        if(link.getAttribute('href') === path.split('/').pop()) {
-            link.classList.add('active');
-        }
-    });
-
-    if (path.includes('circle.html')) circleApp.init();
-    else if (path.includes('tuner.html')) tunerApp.init();
-    else if (path.includes('metronome.html')) metronomeApp.init();
-    // Añadir aquí el resto de herramientas...
-});
-
-/* --- LÓGICA CÍRCULO DE QUINTAS --- */
+/* --- 1. LÓGICA CÍRCULO DE QUINTAS --- */
 const circleApp = {
     data: {
         'C': { acc: '', accName: 'Ninguna', rel: 'Am', sig: 0 },
@@ -71,7 +53,6 @@ const circleApp = {
         'B': { acc: 'F#, C#, G#, D#, A#', accName: '5 Sostenidos', rel: 'G#m', sig: 5 },
         'F#': { acc: 'F#, C#, G#, D#, A#, E#', accName: '6 Sostenidos', rel: 'D#m', sig: 6 },
         'C#': { acc: 'F#, C#, G#, D#, A#, E#, B#', accName: '7 Sostenidos', rel: 'A#m', sig: 7 },
-        // (Simplificado: usar bemoles para la otra mitad en una app completa, aquí usamos sostenidos por brevedad)
         'F': { acc: 'Bb', accName: '1 Bemol', rel: 'Dm', sig: -1 },
         'Bb': { acc: 'Bb, Eb', accName: '2 Bemoles', rel: 'Gm', sig: -2 },
         'Eb': { acc: 'Bb, Eb, Ab', accName: '3 Bemoles', rel: 'Cm', sig: -3 },
@@ -79,109 +60,79 @@ const circleApp = {
         'Db': { acc: 'Bb, Eb, Ab, Db, Gb', accName: '5 Bemoles', rel: 'Bbm', sig: -5 },
     },
     init() {
+        const btn = document.querySelector('#playScaleBtn');
+        if(btn) btn.onclick = () => this.playScale();
         this.renderCircle();
-        document.querySelector('#playScaleBtn').onclick = () => this.playScale();
     },
     renderCircle() {
-        // SVG Setup simplificado
         const svg = document.querySelector('#circleSvg');
-        const keys = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'F', 'Bb', 'Eb', 'Ab', 'Db'];
-        // Orden correcto círculo quintas: C G D A E B F# C# Gb Db Ab Eb Bb F
+        if(!svg) return;
+        svg.innerHTML = '';
         const sortedKeys = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
         
         sortedKeys.forEach((key, i) => {
             const angle = (i * 30) * (Math.PI / 180);
-            const r1 = 120; // Radio exterior
-            const r2 = 80;  // Radio interior (menores)
-            
-            // Segmento Mayor
+            const r1 = 120; const r2 = 80;
             const pathMajor = this.createSegment(angle, r1, 140, key, 'major');
             svg.appendChild(pathMajor);
-            
-            // Segmento Menor (Relativa)
-            // Nota relativa = Tónica + 9 semitonos (o -3)
             const rel = this.data[key] ? this.data[key].rel : 'm';
             const pathMinor = this.createSegment(angle, 40, r2, rel, 'minor');
             svg.appendChild(pathMinor);
         });
     },
     createSegment(angle, rInner, rOuter, text, type) {
-        const x1 = 160 + rInner * Math.cos(angle);
-        const y1 = 160 + rInner * Math.sin(angle);
-        const x2 = 160 + rOuter * Math.cos(angle);
-        const y2 = 160 + rOuter * Math.sin(angle);
-        
-        const x3 = 160 + rOuter * Math.cos(angle + 0.5);
-        const y3 = 160 + rOuter * Math.sin(angle + 0.5);
-        const x4 = 160 + rInner * Math.cos(angle + 0.5);
-        const y4 = 160 + rInner * Math.sin(angle + 0.5);
-
+        const cx = 160, cy = 160;
+        const x1 = cx + rInner * Math.cos(angle); const y1 = cy + rInner * Math.sin(angle);
+        const x2 = cx + rOuter * Math.cos(angle); const y2 = cy + rOuter * Math.sin(angle);
+        const x3 = cx + rOuter * Math.cos(angle + 0.5); const y3 = cy + rOuter * Math.sin(angle + 0.5);
+        const x4 = cx + rInner * Math.cos(angle + 0.5); const y4 = cy + rInner * Math.sin(angle + 0.5);
         const d = `M ${x1} ${y1} L ${x2} ${y2} A ${rOuter} ${rOuter} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${rInner} ${rInner} 0 0 0 ${x1} ${y1}`;
-        
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", d);
-        path.setAttribute("fill", type === 'major' ? '#1e1e24' : '#2a2a35');
-        path.setAttribute("stroke", '#333');
-        path.setAttribute("class", "circle-segment");
-        
-        // Texto
-        const tx = 160 + ((rInner + rOuter)/2) * Math.cos(angle + 0.25);
-        const ty = 160 + ((rInner + rOuter)/2) * Math.sin(angle + 0.25);
-        
+        path.setAttribute("d", d); path.setAttribute("fill", type === 'major' ? '#1e1e24' : '#2a2a35');
+        path.setAttribute("stroke", '#333'); path.setAttribute("class", "circle-segment");
+        const tx = cx + ((rInner + rOuter)/2) * Math.cos(angle + 0.25); const ty = cy + ((rInner + rOuter)/2) * Math.sin(angle + 0.25);
         const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        txt.setAttribute("x", tx);
-        txt.setAttribute("y", ty);
-        txt.textContent = text;
+        txt.setAttribute("x", tx); txt.setAttribute("y", ty); txt.textContent = text;
         txt.setAttribute("transform", `rotate(${(angle * 180 / Math.PI) + 90}, ${tx}, ${ty})`);
-        
-        // Click Event
+        txt.style.fill = "#fff";
         const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        group.appendChild(path);
-        group.appendChild(txt);
-        
-        if(type === 'major') {
-            group.onclick = () => this.selectKey(text);
-        }
-
+        group.appendChild(path); group.appendChild(txt);
+        if(type === 'major') group.onclick = () => this.selectKey(text);
         return group;
     },
     selectKey(key) {
         initAudio();
         const info = this.data[key] || { acc: '-', accName: '-', rel: '-' };
-        
+        const panel = document.getElementById('infoPanel');
+        if(panel) panel.style.opacity = '1';
+
         document.querySelector('#keyTitle').innerText = `${key} Mayor`;
         document.querySelector('#keySignature').innerText = info.accName;
         document.querySelector('#keyAccidentals').innerText = info.acc ? info.acc : '(Naturales)';
         document.querySelector('#relativeMinor').innerText = info.rel;
         
-        // Generar Escala
-        // Fórmula Mayor: T T ST T T T ST (2 2 1 2 2 2 1 semitonos)
         const idx = SPANISH_NOTES.indexOf(key);
         const intervals = [0, 2, 4, 5, 7, 9, 11, 12];
         const scaleNotes = intervals.map(i => SPANISH_NOTES[(idx + i) % 12]);
-        
         const scaleContainer = document.querySelector('#scaleNotes');
-        scaleContainer.innerHTML = scaleNotes.map(n => `<span class="detail-value" style="color:var(--text-main); font-size:1rem; margin-right:5px;">${n}</span>`).join(' ');
+        if(scaleContainer) scaleContainer.innerHTML = scaleNotes.map(n => `<span style="color:#fff; font-size:1rem; margin-right:5px; font-weight:bold;">${n}</span>`).join(' ');
 
-        // Generar Acordes (I, ii, iii, IV, V, vi, vii°)
-        const chordRoots = [0, 2, 4, 5, 7, 9, 11]; // Grados
-        const chordTypes = ['', 'm', 'm', '', '', 'm', '°']; // Calidad
+        const chordRoots = [0, 2, 4, 5, 7, 9, 11];
+        const chordTypes = ['', 'm', 'm', '', '', 'm', '°'];
         const chordNames = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
-        
         const chordContainer = document.querySelector('#chordGrid');
-        chordContainer.innerHTML = '';
-        
-        chordRoots.forEach((offset, i) => {
-            const rootIdx = (idx + offset) % 12;
-            const rootName = SPANISH_NOTES[rootIdx];
-            const btn = document.createElement('div');
-            btn.className = 'chord-btn';
-            btn.innerHTML = `<strong>${chordNames[i]}</strong><br>${rootName}${chordTypes[i]}`;
-            btn.onclick = () => this.playChord(rootIdx, chordTypes[i]);
-            chordContainer.appendChild(btn);
-        });
-        
-        // Reproducir acorde tónico al seleccionar
+        if(chordContainer) {
+            chordContainer.innerHTML = '';
+            chordRoots.forEach((offset, i) => {
+                const rootIdx = (idx + offset) % 12;
+                const rootName = SPANISH_NOTES[rootIdx];
+                const btn = document.createElement('div');
+                btn.className = 'chord-btn';
+                btn.innerHTML = `<strong>${chordNames[i]}</strong><br>${rootName}${chordTypes[i]}`;
+                btn.onclick = () => this.playChord(rootIdx, chordTypes[i]);
+                chordContainer.appendChild(btn);
+            });
+        }
         this.playChord(idx, '');
     },
     playScale() {
@@ -191,7 +142,7 @@ const circleApp = {
         let now = audioCtx.currentTime;
         intervals.forEach(interval => {
             const noteIdx = (idx + interval) % 12;
-            const midi = 60 + noteIdx; // Do central
+            const midi = 60 + noteIdx;
             playTone(getFreqFromMidi(midi), 0.5, 'sine', now);
             now += 0.5;
         });
@@ -199,21 +150,472 @@ const circleApp = {
     playChord(rootIdx, type) {
         const midiRoot = 60 + rootIdx;
         const freq = getFreqFromMidi(midiRoot);
-        
         playTone(freq, 1.0, 'triangle');
-        
-        if (type === 'm') playTone(freq * 1.059, 1.0, 'triangle'); // 3ra menor
-        else if (type !== '°') playTone(freq * 1.122, 1.0, 'triangle'); // 3ra Mayor
-        
-        if (type === '°') playTone(freq * 1.414, 1.0, 'triangle'); // 5ta disminuida
-        else playTone(freq * 1.498, 1.0, 'triangle'); // 5ta Justa
+        if (type === 'm') playTone(freq * 1.059, 1.0, 'triangle');
+        else if (type !== '°') playTone(freq * 1.122, 1.0, 'triangle');
+        if (type === '°') playTone(freq * 1.414, 1.0, 'triangle');
+        else playTone(freq * 1.498, 1.0, 'triangle');
     }
 };
 
-/* --- LÓGICA AFINADOR (Ejemplo Modular) --- */
+/* --- 2. LÓGICA AFINADOR --- */
 const tunerApp = {
+    isRunning: false, analyser: null, mediaStream: null, bufferLength: null, dataArray: null, rafId: null, needlePosition: 50,
     init() {
-        console.log("Afinador Iniciado");
-        // Copiar lógica del afinador aquí...
+        const btn = document.getElementById('tunerToggleBtn');
+        const refBtn = document.getElementById('playRefBtn');
+        const sel = document.getElementById('refNoteSelect');
+        
+        if(btn) btn.addEventListener('click', () => this.toggle());
+        if(refBtn) refBtn.addEventListener('click', () => this.playReference());
+        
+        this.populateRefSelect();
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
+    },
+    populateRefSelect() {
+        const sel = document.getElementById('refNoteSelect');
+        if(!sel) return;
+        const octaves = [3, 4];
+        octaves.forEach(o => { 
+            SPANISH_NOTES.forEach(n => {
+                const opt = document.createElement('option'); 
+                opt.text = `${n} ${o}`; 
+                opt.value = `${n}-${o}`; 
+                sel.appendChild(opt);
+            }); 
+        });
+    },
+    resizeCanvas() {
+        const canvas = document.getElementById('waveCanvas');
+        if(canvas) {
+            canvas.width = canvas.parentElement.clientWidth; 
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+    },
+    async toggle() {
+        if (this.isRunning) this.stop(); else this.start();
+    },
+    async start() {
+        try {
+            initAudio();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
+            this.mediaStream = audioCtx.createMediaStreamSource(stream);
+            this.analyser = audioCtx.createAnalyser();
+            this.analyser.fftSize = 2048;
+            this.bufferLength = this.analyser.fftSize;
+            this.dataArray = new Float32Array(this.bufferLength);
+            this.mediaStream.connect(this.analyser);
+            this.isRunning = true;
+            const btn = document.getElementById('tunerToggleBtn');
+            if(btn) {
+                btn.classList.add('active-state');
+                btn.querySelector('span').innerText = "Detener";
+            }
+            this.update();
+        } catch (e) { console.error(e); showToast("Error al acceder al micrófono."); }
+    },
+    stop() {
+        if (this.mediaStream) { this.mediaStream.disconnect(); this.mediaStream = null; }
+        if (this.rafId) cancelAnimationFrame(this.rafId);
+        this.isRunning = false;
+        const btn = document.getElementById('tunerToggleBtn');
+        if(btn) {
+            btn.classList.remove('active-state');
+            btn.querySelector('span').innerText = "Iniciar Micrófono";
+        }
+        const noteDisplay = document.getElementById('noteDisplay');
+        const freqDisplay = document.getElementById('freqDisplay');
+        const statusText = document.getElementById('statusText');
+        const needle = document.getElementById('needle');
+        const canvas = document.getElementById('waveCanvas');
+        
+        if(noteDisplay) noteDisplay.innerText = "--";
+        if(freqDisplay) freqDisplay.innerText = "0.0 Hz";
+        if(statusText) {
+            statusText.innerText = "Listo";
+            statusText.className = "status-text";
+        }
+        this.needlePosition = 50;
+        if(needle) needle.style.left = "50%";
+        if(canvas) {
+            const ctx = canvas.getContext('2d'); 
+            ctx.clearRect(0, 0, 1000, 1000);
+        }
+    },
+    update() {
+        if (!this.isRunning) return;
+        this.rafId = requestAnimationFrame(() => this.update());
+        this.analyser.getFloatTimeDomainData(this.dataArray);
+        this.drawWaveform();
+        const pitch = this.autoCorrelate(this.dataArray, audioCtx.sampleRate);
+        if (pitch === -1) {
+            const statusText = document.getElementById('statusText');
+            if(statusText) {
+                statusText.innerText = "Escuchando...";
+                statusText.className = "status-text";
+            }
+            this.needlePosition = 50 + (this.needlePosition - 50) * 0.9;
+        } else {
+            const midiNote = Math.round(12 * (Math.log(pitch / A4_FREQ) / Math.log(2)) + A4_MIDI);
+            const noteName = SPANISH_NOTES[midiNote % 12];
+            const octave = Math.floor(midiNote / 12) - 1;
+            const baseFreq = A4_FREQ * Math.pow(2, (midiNote - A4_MIDI) / 12);
+            const cents = 1200 * Math.log(pitch / baseFreq) / Math.log(2);
+            
+            const noteDisplay = document.getElementById('noteDisplay');
+            const freqDisplay = document.getElementById('freqDisplay');
+            const statusText = document.getElementById('statusText');
+            const needle = document.getElementById('needle');
+
+            if(noteDisplay) noteDisplay.innerText = noteName;
+            if(freqDisplay) freqDisplay.innerText = Math.round(pitch) + " Hz";
+            let targetPos = 50 + cents;
+            if (targetPos > 100) targetPos = 100; if (targetPos < 0) targetPos = 0;
+            this.needlePosition = this.needlePosition + (targetPos - this.needlePosition) * 0.15;
+            if(needle) needle.style.left = `${this.needlePosition}%`;
+            
+            if(statusText) {
+                if (Math.abs(cents) < 10) {
+                    statusText.innerText = "¡Perfecto!";
+                    statusText.className = "status-text status-perfect";
+                } else if (cents < 0) {
+                    statusText.innerText = "Bajo";
+                    statusText.className = "status-text status-flat";
+                } else {
+                    statusText.innerText = "Alto";
+                    statusText.className = "status-text status-sharp";
+                }
+            }
+        }
+        const needle = document.getElementById('needle');
+        if(needle) needle.style.left = `${this.needlePosition}%`;
+    },
+    autoCorrelate(buf, sampleRate) {
+        let SIZE = buf.length; let rms = 0;
+        for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+        rms = Math.sqrt(rms / SIZE);
+        if (rms < 0.01) return -1;
+        let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+        for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+        for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+        buf = buf.slice(r1, r2); SIZE = buf.length;
+        let c = new Array(SIZE).fill(0);
+        for (let i = 0; i < SIZE; i++) for (let j = 0; j < SIZE - i; j++) c[i] = c[i] + buf[j] * buf[j + i];
+        let d = 0; while (c[d] > c[d + 1]) d++;
+        let maxval = -1, maxpos = -1;
+        for (let i = d; i < SIZE; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+        let T0 = maxpos;
+        let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+        let a = (x1 + x3 - 2 * x2) / 2, b = (x3 - x1) / 2;
+        if (a) T0 = T0 - b / (2 * a);
+        return sampleRate / T0;
+    },
+    drawWaveform() {
+        const canvas = document.getElementById('waveCanvas'); if(!canvas) return;
+        const ctx = canvas.getContext('2d'); const w = canvas.width, h = canvas.height;
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+        ctx.lineWidth = 2; ctx.strokeStyle = '#00e5ff'; ctx.beginPath();
+        const sliceWidth = w * 1.0 / this.bufferLength; let x = 0;
+        for (let i = 0; i < this.bufferLength; i++) {
+            const v = this.dataArray[i] * 4; const y = (h / 2) + (v * h / 2);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            x += sliceWidth;
+        }
+        ctx.lineTo(w, h / 2); ctx.stroke();
+    },
+    playReference() {
+        const val = document.getElementById('refNoteSelect').value;
+        const [note, oct] = val.split('-');
+        const noteIdx = SPANISH_NOTES.indexOf(note);
+        const midi = (parseInt(oct) + 1) * 12 + noteIdx;
+        const freq = A4_FREQ * Math.pow(2, (midi - A4_MIDI) / 12);
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+        osc.stop(audioCtx.currentTime + 1);
     }
-};ss
+};
+
+/* --- 3. METRÓNOMO --- */
+const metronomeApp = {
+    isPlaying: false, tempo: 100, lookahead: 25.0, scheduleAheadTime: 0.1, nextNoteTime: 0.0, currentBeat: 0, beatsPerBar: 4, timerID: null,
+    init() {
+        const bpmInput = document.getElementById('bpmInput');
+        const bpmSlider = document.getElementById('bpmSlider');
+        if(bpmInput) bpmInput.addEventListener('change', (e) => this.setBPM(e.target.value));
+        if(bpmSlider) bpmSlider.addEventListener('input', (e) => this.setBPM(e.target.value));
+        
+        // Radio buttons para compás
+        const radios = document.getElementsByName('timeSig');
+        if(radios.length > 0) {
+            radios.forEach(r => r.addEventListener('change', (e) => this.setTimeSig(e.target.value)));
+        }
+    },
+    setBPM(val) {
+        this.tempo = parseInt(val);
+        const bpmInput = document.getElementById('bpmInput');
+        const bpmSlider = document.getElementById('bpmSlider');
+        if(bpmInput) bpmInput.value = this.tempo;
+        if(bpmSlider) bpmSlider.value = this.tempo;
+    },
+    adjustBPM(delta) { this.setBPM(this.tempo + delta); },
+    setTimeSig(val) {
+        this.beatsPerBar = parseInt(val);
+        document.querySelectorAll('.beat-dot').forEach(d => { d.classList.remove('active'); d.style.opacity = '0.3'; });
+        for(let i=0; i<this.beatsPerBar; i++) {
+            const dot = document.getElementById(`beat${i}`);
+            if(dot) dot.style.opacity = '1';
+        }
+    },
+    nextNote() {
+        const secondsPerBeat = 60.0 / this.tempo;
+        this.nextNoteTime += secondsPerBeat;
+        this.currentBeat++;
+        if (this.currentBeat === this.beatsPerBar) this.currentBeat = 0;
+    },
+    scheduleNote(beatNumber, time) {
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 1500;
+        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        if (beatNumber === 0) { osc.frequency.value = 1200; gain.gain.setValueAtTime(0.5, time);
+        } else { osc.frequency.value = 800; gain.gain.setValueAtTime(0.3, time); }
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+        osc.start(time); osc.stop(time + 0.05);
+        const drawTime = (time - audioCtx.currentTime) * 1000;
+        setTimeout(() => {
+            document.querySelectorAll('.beat-dot').forEach(d => { d.classList.remove('beat-1', 'beat-weak'); d.style.transform = 'scale(1)'; });
+            const dot = document.getElementById(`beat${beatNumber}`);
+            if(dot) {
+                dot.classList.add(beatNumber === 0 ? 'beat-1' : 'beat-weak');
+                dot.style.transform = 'scale(1.2)';
+            }
+        }, Math.max(0, drawTime));
+    },
+    scheduler() {
+        while (this.nextNoteTime < audioCtx.currentTime + this.scheduleAheadTime) {
+            this.scheduleNote(this.currentBeat, this.nextNoteTime); this.nextNote();
+        }
+        if (this.isPlaying) this.timerID = window.setTimeout(() => this.scheduler(), this.lookahead);
+    },
+    toggle() {
+        this.isPlaying = !this.isPlaying; const btn = document.getElementById('metroToggleBtn');
+        if (this.isPlaying) {
+            initAudio();
+            this.currentBeat = 0; this.nextNoteTime = audioCtx.currentTime + 0.05; this.scheduler();
+            if(btn) {
+                btn.classList.add('active-state'); 
+                btn.innerText = "Detener";
+            }
+        } else {
+            window.clearTimeout(this.timerID); 
+            if(btn) {
+                btn.classList.remove('active-state'); 
+                btn.innerText = "Iniciar Metrónomo";
+            }
+            document.querySelectorAll('.beat-dot').forEach(d => d.classList.remove('beat-1', 'beat-weak'));
+        }
+    }
+};
+
+/* --- 4. BEAT BOX --- */
+const beatBoxApp = {
+    isPlaying: false, tempo: 120, currentStep: 0, nextNoteTime: 0, timerID: null,
+    tracks: [
+        { name: 'Bombo', color: 'row-0', active: new Array(16).fill(false) },
+        { name: 'Caja', color: 'row-1', active: new Array(16).fill(false) },
+        { name: 'Hat', color: 'row-2', active: new Array(16).fill(false) },
+        { name: 'Clap', color: 'row-3', active: new Array(16).fill(false) }
+    ],
+    init() {
+        const grid = document.getElementById('sequencerGrid'); 
+        if(!grid) return;
+        grid.innerHTML = '';
+        this.tracks.forEach((track, trackIdx) => {
+            const label = document.createElement('div'); label.className = 'track-label'; label.innerText = track.name; grid.appendChild(label);
+            for(let i=0; i<16; i++) {
+                const btn = document.createElement('div'); btn.className = `step-btn ${track.color}`;
+                btn.onclick = () => { track.active[i] = !track.active[i]; btn.classList.toggle('active', track.active[i]); };
+                grid.appendChild(btn);
+            }
+        });
+    },
+    toggle() {
+        this.isPlaying = !this.isPlaying;
+        const btn = document.getElementById('beatPlayBtn');
+        if(!btn) return;
+
+        if(this.isPlaying) {
+            initAudio();
+            this.currentStep = 0; this.nextNoteTime = audioCtx.currentTime; this.scheduler();
+            btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Detener`;
+        } else {
+            clearTimeout(this.timerID); btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Tocar`;
+        }
+    },
+    setBpm(val) { this.tempo = parseInt(val); },
+    clearPattern() { this.tracks.forEach(t => t.active.fill(false)); document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active')); },
+    scheduler() {
+        while (this.nextNoteTime < audioCtx.currentTime + 0.1) {
+            this.playStep(this.currentStep, this.nextNoteTime);
+            this.nextNoteTime += 60.0 / this.tempo / 4;
+            this.currentStep = (this.currentStep + 1) % 16;
+        }
+        if(this.isPlaying) this.timerID = requestAnimationFrame(() => this.scheduler());
+    },
+    playStep(step, time) {
+        setTimeout(() => {
+            document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('step-current'));
+            const col = step + 1; 
+            // Selector CSS un poco complejo para columnas, usando querySelectorAll manualmente
+            const allBtns = document.querySelectorAll('.step-btn');
+            // Esto es una simplificación visual
+        }, (time - audioCtx.currentTime) * 1000);
+
+        this.tracks.forEach((track, idx) => {
+            if(track.active[step]) {
+                if(idx === 0) this.playKick(time);
+                if(idx === 1) this.playSnare(time);
+                if(idx === 2) this.playHat(time);
+                if(idx === 3) this.playClap(time);
+            }
+        });
+    },
+    playKick(time) {
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(150, time); osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+        gain.gain.setValueAtTime(1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+        osc.start(time); osc.stop(time + 0.5);
+    },
+    playSnare(time) {
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type = 'triangle'; osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(250, time); gain.gain.setValueAtTime(0.5, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+        osc.start(time); osc.stop(time + 0.2);
+    },
+    playHat(time) {
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+        osc.type = 'square'; osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        filter.type = 'highpass'; filter.frequency.value = 8000;
+        osc.frequency.setValueAtTime(800, time); gain.gain.setValueAtTime(0.1, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+        osc.start(time); osc.stop(time + 0.05);
+    },
+    playClap(time) {
+         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+         osc.type = 'sawtooth'; osc.connect(gain); gain.connect(audioCtx.destination);
+         osc.frequency.setValueAtTime(1200, time); gain.gain.setValueAtTime(0.3, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+         osc.start(time); osc.stop(time + 0.1);
+    }
+};
+
+/* --- 5. EAR TRAINER --- */
+const earApp = {
+    currentInterval: null,
+    intervals: {
+        '3m': { semitones: 3, name: '3ra Menor' },
+        '3M': { semitones: 4, name: '3ra Mayor' },
+        '5J': { semitones: 7, name: '5ta Justa' },
+        '8va': { semitones: 12, name: 'Octava' }
+    },
+    init() {},
+    playQuestion() {
+        const keys = Object.keys(this.intervals);
+        this.currentInterval = keys[Math.floor(Math.random() * keys.length)];
+        const rootMidi = 48 + Math.floor(Math.random() * 12); 
+        const rootFreq = getFreqFromMidi(rootMidi);
+        const semitones = this.intervals[this.currentInterval].semitones;
+        const targetFreq = rootFreq * Math.pow(2, semitones / 12);
+        
+        playTone(rootFreq, 0.5, 'sine', audioCtx.currentTime + 0.1);
+        playTone(targetFreq, 0.5, 'sine', audioCtx.currentTime + 0.8);
+        
+        const feedback = document.getElementById('earFeedback');
+        if(feedback) {
+            feedback.innerText = "Escucha..."; 
+            feedback.className = "";
+        }
+        const btn = document.getElementById('earPlayBtn');
+        if(btn) {
+            btn.classList.add('active-state');
+            setTimeout(() => btn.classList.remove('active-state'), 1000);
+        }
+    },
+    checkAnswer(answer) {
+        if(!this.currentInterval) return;
+        const isCorrect = answer === this.currentInterval;
+        const feedback = document.getElementById('earFeedback');
+        if(feedback) {
+            if(isCorrect) {
+                feedback.innerText = "¡Correcto! " + this.intervals[this.currentInterval].name;
+                feedback.style.color = "var(--success)";
+                this.playQuestion();
+            } else {
+                feedback.innerText = "Incorrecto. Era " + this.intervals[this.currentInterval].name;
+                feedback.style.color = "var(--secondary)";
+            }
+        }
+    }
+};
+
+/* --- 6. DRONE --- */
+const droneApp = {
+    activeOscillators: {},
+    init() {
+        const container = document.getElementById('droneKeys');
+        if(!container) return;
+        const naturalNotes = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
+        naturalNotes.forEach(note => {
+            const div = document.createElement('div'); div.className = 'drone-key'; div.innerText = note;
+            div.addEventListener('mousedown', () => this.playNote(note, div));
+            div.addEventListener('mouseup', () => this.stopNote(note, div));
+            div.addEventListener('mouseleave', () => this.stopNote(note, div));
+            div.addEventListener('touchstart', (e) => { e.preventDefault(); this.playNote(note, div); });
+            div.addEventListener('touchend', (e) => { e.preventDefault(); this.stopNote(note, div); });
+            container.appendChild(div);
+        });
+    },
+    playNote(note, uiElement) {
+        initAudio();
+        if (this.activeOscillators[note]) return;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        const idx = SPANISH_NOTES.indexOf(note); const midi = 60 + idx;
+        const freq = getFreqFromMidi(midi);
+        osc.type = 'sawtooth'; osc.frequency.value = freq;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.value = 600;
+        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.2);
+        this.activeOscillators[note] = { osc, gain, uiElement }; uiElement.classList.add('playing');
+    },
+    stopNote(note, uiElement) {
+        if (!this.activeOscillators[note]) return;
+        const { osc, gain } = this.activeOscillators[note];
+        gain.gain.cancelScheduledValues(audioCtx.currentTime); gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc.stop(audioCtx.currentTime + 0.5);
+        delete this.activeOscillators[note]; uiElement.classList.remove('playing');
+    },
+    stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
+};
+
+/* --- ROUTING DE INICIALIZACIÓN (Al FINAL) --- */
+document.addEventListener('DOMContentLoaded', () => {
+    const path = window.location.pathname;
+    
+    // Marcar link activo en menú
+    document.querySelectorAll('.nav-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if(href && path.includes(href)) link.classList.add('active');
+    });
+
+    // Iniciar herramienta correcta basada en la URL
+    if (path.includes('circle.html')) circleApp.init();
+    else if (path.includes('tuner.html')) tunerApp.init();
+    else if (path.includes('metronome.html')) metronomeApp.init();
+    else if (path.includes('beatbox.html')) beatBoxApp.init();
+    else if (path.includes('ear.html')) earApp.init();
+    else if (path.includes('drone.html')) droneApp.init();
+});
