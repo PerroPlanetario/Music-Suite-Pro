@@ -630,117 +630,148 @@ const droneApp = {
     },
     stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
 };
-/* --- 7. ESPECTRÓMETRO --- */
+
+/* --- 7. ESPECTRÓMETRO (MEJORADO) --- */
 const spectrometerApp = {
-    isRunning: false, analyser: null, mediaStream: null, rafId: null,
+    isRunning: false,
+    analyser: null,
+    mediaStream: null,
+    rafId: null,
+    
     init() {
         try {
+            console.log("Iniciando Espectrómetro...");
             const btn = document.getElementById('spectroToggleBtn');
-            if(btn) btn.addEventListener('click', () => this.toggle());
+            
+            if (!btn) {
+                console.error("No se encontró el botón 'spectroToggleBtn'");
+                return;
+            }
+            
+            btn.addEventListener('click', () => {
+                console.log("Click en botón detectado");
+                this.toggle();
+            });
+            
             this.resizeCanvas();
             window.addEventListener('resize', () => this.resizeCanvas());
-        } catch(e) { console.error("Error iniciando Espectrómetro:", e); }
+            console.log("Espectrómetro inicializado correctamente.");
+        } catch(e) { 
+            console.error("Error iniciando Espectrómetro:", e); 
+        }
     },
+    
     resizeCanvas() {
         const canvas = document.getElementById('spectroCanvas');
         if(canvas) {
+            // Asegurar que el canvas tenga tamaño físico real
             canvas.width = canvas.parentElement.clientWidth; 
             canvas.height = canvas.parentElement.clientHeight;
+            console.log("Canvas redimensionado:", canvas.width, canvas.height);
         }
     },
+    
     async toggle() {
-        if (this.isRunning) this.stop(); else this.start();
+        console.log("Toggle llamado. Estado actual:", this.isRunning);
+        if (this.isRunning) this.stop(); 
+        else this.start();
     },
+    
     async start() {
         try {
+            console.log("Intentando iniciar micrófono...");
             const ctx = getAudioContext();
             const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
+            
             this.mediaStream = ctx.createMediaStreamSource(stream);
             this.analyser = ctx.createAnalyser();
-            this.analyser.fftSize = 2048; // Resolución del espectro
+            this.analyser.fftSize = 256; // Reducimos FFT para barras más gordas y visibles
+            
+            // Importante: El analizador se conecta al stream, pero NO al destino (altavoces) para evitar feedback
             this.mediaStream.connect(this.analyser);
+            
             this.isRunning = true;
+            
             const btn = document.getElementById('spectroToggleBtn');
             if(btn) {
                 btn.classList.add('active-state');
-                btn.querySelector('span').innerText = "Detener";
+                btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Detener`;
             }
+            
+            console.log("Micrófono iniciado. Iniciando bucle de dibujo.");
             this.draw();
-        } catch (e) { console.error(e); showToast("Error al acceder al micrófono."); }
+            
+        } catch (e) { 
+            console.error("Error al iniciar micrófono:", e); 
+            showToast("Error: " + e.message); 
+        }
     },
+    
     stop() {
-        if (this.mediaStream) { this.mediaStream.disconnect(); this.mediaStream = null; }
+        console.log("Deteniendo...");
+        if (this.mediaStream) { 
+            this.mediaStream.disconnect(); 
+            this.mediaStream = null; 
+        }
         if (this.rafId) cancelAnimationFrame(this.rafId);
         this.isRunning = false;
+        
         const btn = document.getElementById('spectroToggleBtn');
         if(btn) {
             btn.classList.remove('active-state');
-            btn.querySelector('span').innerText = "Iniciar Micrófono";
+            btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg> Iniciar Micrófono`;
         }
+        
         const canvas = document.getElementById('spectroCanvas');
         if(canvas) {
             const ctx = canvas.getContext('2d'); 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
-        const dbLabel = document.getElementById('maxDb');
-        if(dbLabel) dbLabel.innerText = "-inf";
     },
+    
     draw() {
         if (!this.isRunning) return;
         this.rafId = requestAnimationFrame(() => this.draw());
-
+        
         const canvas = document.getElementById('spectroCanvas');
         if(!canvas) return;
         const ctx = canvas.getContext('2d');
         const w = canvas.width;
         const h = canvas.height;
-
-        // Obtener datos de frecuencia (0 a 255)
+        
         const bufferLength = this.analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
-
-        // Fondo semi-transparente para efecto estela
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        
+        // Limpiar y poner fondo negro
+        ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, w, h);
-
-        const barWidth = (w / bufferLength) * 2.5;
-        let barHeight;
-        let x = 0;
-
-        // Crear gradiente de color
+        
+        // Crear gradiente
         const gradient = ctx.createLinearGradient(0, h, 0, 0);
-        gradient.addColorStop(0, '#00e5ff');   // Agudos (Azul)
-        gradient.addColorStop(0.5, '#ff0055'); // Medios (Rosa)
-        gradient.addColorStop(1, '#ffcc00');  // Graves (Amarillo)
-
+        gradient.addColorStop(0, '#00e5ff'); // Abajo (Graves)
+        gradient.addColorStop(0.5, '#ff0055'); // Medio
+        gradient.addColorStop(1, '#ffcc00'); // Arriba (Agudos)
         ctx.fillStyle = gradient;
-
-        let maxVal = 0;
-
-        for (let i = 0; i < bufferLength; i++) {
-            barHeight = dataArray[i];
+        
+        // Dibujar barras
+        // Calculamos el ancho de cada barra dividiendo el ancho del canvas por el número de barras que queremos dibujar
+        // Usamos bufferLength (que es la mitad de FFT size) como número de barras
+        const barWidth = (w / bufferLength) * 2; 
+        
+        let x = 0;
+        
+        for(let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * h;
             
-            // Normalizar altura al canvas (escalar un poco para que se vea bien)
-            const scaledHeight = (barHeight / 255) * h;
-
             // Dibujar barra
-            ctx.fillRect(x, h - scaledHeight, barWidth, scaledHeight);
-
-            x += barWidth + 1; // +1 de espacio entre barras
-
-            if (barHeight > maxVal) maxVal = barHeight;
-        }
-
-        // Actualizar etiqueta de dB (aprox)
-        const dbLabel = document.getElementById('maxDb');
-        if(dbLabel && maxVal > 0) {
-            // Fórmula simple de conversión visual
-            const db = Math.round(10 * Math.log10(maxVal / 255) * 2); 
-            dbLabel.innerText = db > 0 ? db : "-inf";
+            ctx.fillRect(x, h - barHeight, barWidth, barHeight);
+            
+            x += barWidth + 1; // +1 px de separación
         }
     }
 };
+
 /* --- ROUTING DE INICIALIZACIÓN --- */
 window.addEventListener('DOMContentLoaded', () => {
     try {
@@ -761,6 +792,7 @@ window.addEventListener('DOMContentLoaded', () => {
         else if (path.includes('beatbox.html')) beatBoxApp.init();
         else if (path.includes('ear.html')) earApp.init();
         else if (path.includes('drone.html')) droneApp.init();
+        else if (path.includes('spectrometer.html')) spectrometerApp.init();
         
     } catch(e) {
         console.error("Error crítico al iniciar la aplicación:", e);
