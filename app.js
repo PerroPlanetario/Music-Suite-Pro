@@ -716,7 +716,6 @@ const spectrometerApp = {
             showToast("Ecualizador: ACTIVO (2kHz - 4kHz)");
 
             if (this.harmonicFilter && this.isRunning) {
-                this.harmonicFilter.gain.cancelScheduledValues(ctx.currentTime);
                 this.harmonicFilter.gain.linearRampToValueAtTime(12, ctx.currentTime + 0.1);
             }
         } else {
@@ -726,7 +725,6 @@ const spectrometerApp = {
             showToast("Ecualizador: INACTIVO");
 
             if (this.harmonicFilter && this.isRunning) {
-                this.harmonicFilter.gain.cancelScheduledValues(ctx.currentTime);
                 this.harmonicFilter.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
             }
         }
@@ -849,39 +847,6 @@ const spectrometerApp = {
         // Poner la imagen en el canvas
         ctx.putImageData(imgData, xPos, 0);
     },
-
-       // Función de colores: Mapa de Calor (Verde -> Rojo)
-    getHeatmapColor(value) {
-        // Si es silencio absoluto, devuelve Negro
-        if (value === 0) return { r: 0, g: 0, b: 0 };
-
-        // Normalizar valor de 0 a 1
-        const val = value / 255;
-        let r, g, b;
-
-        // --- INTERPOLACIÓN DE COLORES ---
-        // Queremos: Verde (Suave) -> Amarillo (Medio) -> Rojo (Fuerte)
-        
-        if (val < 0.5) {
-            // Fase 1: Verde a Amarillo (0.0 a 0.5)
-            // R sube: 0 -> 255
-            // G se mantiene: 255
-            // B se mantiene: 0
-            r = Math.floor(val * 2 * 255); 
-            g = 255;
-            b = 0;
-        } else {
-            // Fase 2: Amarillo a Rojo (0.5 a 1.0)
-            // R se mantiene: 255
-            // G baja: 255 -> 0
-            // B se mantiene: 0
-            r = 255;
-            g = Math.floor((1 - (val - 0.5) * 2) * 255);
-            b = 0;
-        }
-
-        return { r, g, b };
-    }
 };
 
 /* --- ROUTING DE INICIALIZACIÓN --- */
