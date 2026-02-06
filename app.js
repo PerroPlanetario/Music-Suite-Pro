@@ -631,16 +631,16 @@ const droneApp = {
     stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
 };
 
-/* --- 7. ESPECTRÓMETRO (MEJORADO) --- */
+/* --- 7. ESPECTRÓMETRO (MEJORADO PARA VOCES) --- */
 const spectrometerApp = {
     isRunning: false,
     analyser: null,
     mediaStream: null,
     rafId: null,
-    
+
     init() {
         try {
-            console.log("Iniciando Espectrómetro...");
+            console.log(">>> INICIALIZANDO ESPECTRÓMETRO V2 (LOGARÍTMICO) <<<");
             const btn = document.getElementById('spectroToggleBtn');
             
             if (!btn) {
@@ -648,46 +648,48 @@ const spectrometerApp = {
                 return;
             }
             
-            btn.addEventListener('click', () => {
-                console.log("Click en botón detectado");
+            // Clonar botón para limpiar eventos viejos
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', () => {
+                console.log("Botón clicado");
                 this.toggle();
             });
-            
+
             this.resizeCanvas();
             window.addEventListener('resize', () => this.resizeCanvas());
-            console.log("Espectrómetro inicializado correctamente.");
         } catch(e) { 
             console.error("Error iniciando Espectrómetro:", e); 
         }
     },
-    
+
     resizeCanvas() {
         const canvas = document.getElementById('spectroCanvas');
         if(canvas) {
-            // Asegurar que el canvas tenga tamaño físico real
             canvas.width = canvas.parentElement.clientWidth; 
             canvas.height = canvas.parentElement.clientHeight;
-            console.log("Canvas redimensionado:", canvas.width, canvas.height);
         }
     },
-    
+
     async toggle() {
-        console.log("Toggle llamado. Estado actual:", this.isRunning);
         if (this.isRunning) this.stop(); 
         else this.start();
     },
-    
+
     async start() {
         try {
-            console.log("Intentando iniciar micrófono...");
+            console.log("Iniciando micrófono con FFT 2048...");
             const ctx = getAudioContext();
             const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
             
             this.mediaStream = ctx.createMediaStreamSource(stream);
             this.analyser = ctx.createAnalyser();
-            this.analyser.fftSize = 256; // Reducimos FFT para barras más gordas y visibles
             
-            // Importante: El analizador se conecta al stream, pero NO al destino (altavoces) para evitar feedback
+            // CAMBIO CLAVE: Mayor resolución (2048) para ver más detalle en vocales
+            this.analyser.fftSize = 2048; 
+            
+            // El stream se conecta al analizador, NO a los altavoces (para evitar feedback)
             this.mediaStream.connect(this.analyser);
             
             this.isRunning = true;
@@ -697,8 +699,6 @@ const spectrometerApp = {
                 btn.classList.add('active-state');
                 btn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Detener`;
             }
-            
-            console.log("Micrófono iniciado. Iniciando bucle de dibujo.");
             this.draw();
             
         } catch (e) { 
@@ -706,7 +706,7 @@ const spectrometerApp = {
             showToast("Error: " + e.message); 
         }
     },
-    
+
     stop() {
         console.log("Deteniendo...");
         if (this.mediaStream) { 
@@ -728,46 +728,57 @@ const spectrometerApp = {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
     },
-    
+
     draw() {
         if (!this.isRunning) return;
         this.rafId = requestAnimationFrame(() => this.draw());
-        
+
         const canvas = document.getElementById('spectroCanvas');
         if(!canvas) return;
         const ctx = canvas.getContext('2d');
         const w = canvas.width;
         const h = canvas.height;
-        
-        const bufferLength = this.analyser.frequencyBinCount;
+
+        const bufferLength = this.analyser.frequencyBinCount; // 1024 (mitad de 2048)
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
-        
-        // Limpiar y poner fondo negro
-        ctx.fillStyle = '#000';
+
+        // Fondo negro con efecto "residual" muy leve (0.2) para que no parpadee tanto
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, w, h);
-        
-        // Crear gradiente
+
+        // Gradiente de colores para las barras
         const gradient = ctx.createLinearGradient(0, h, 0, 0);
-        gradient.addColorStop(0, '#00e5ff'); // Abajo (Graves)
-        gradient.addColorStop(0.5, '#ff0055'); // Medio
-        gradient.addColorStop(1, '#ffcc00'); // Arriba (Agudos)
+        gradient.addColorStop(0, '#00e5ff');   // Graves (Azul)
+        gradient.addColorStop(0.4, '#00ff88'); // Medios (Verde)
+        gradient.addColorStop(0.7, '#ffcc00'); // Altos (Amarillo)
+        gradient.addColorStop(1, '#ff0055');   // Muy Altos (Rojo)
         ctx.fillStyle = gradient;
-        
-        // Dibujar barras
-        // Calculamos el ancho de cada barra dividiendo el ancho del canvas por el número de barras que queremos dibujar
-        // Usamos bufferLength (que es la mitad de FFT size) como número de barras
-        const barWidth = (w / bufferLength) * 2; 
-        
-        let x = 0;
-        
-        for(let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * h;
+
+        // Número de barras visuales (menos es mejor para ver forma de ondas de voz)
+        const numBars = 64; 
+        const barWidth = w / numBars;
+
+        for (let i = 0; i < numBars; i++) {
+            // MAPEO LOGARÍTMICO
+            // Esto estira las frecuencias bajas (donde están las vocales) y comprime las altas.
+            // La fórmula Math.pow(index / numBars, 2) hace esa curva.
+            const percent = i / numBars;
+            // Exponente 2 o 3 funciona bien para voz. 2 es más suave, 3 más extremo.
+            const index = Math.floor(Math.pow(percent, 2.5) * bufferLength);
             
+            // Asegurar que no nos salimos del array
+            const safeIndex = Math.min(index, bufferLength - 1);
+            
+            const value = dataArray[safeIndex];
+            
+            // Altura de la barra
+            const barHeight = (value / 255) * h;
+
             // Dibujar barra
-            ctx.fillRect(x, h - barHeight, barWidth, barHeight);
-            
-            x += barWidth + 1; // +1 px de separación
+            // x se calcula normalmente
+            const x = i * barWidth;
+            ctx.fillRect(x, h - barHeight, barWidth - 2, barHeight); // -2 para dejar un pequeño espacio
         }
     }
 };
