@@ -69,15 +69,11 @@ const circleApp = {
         'Eb': { acc: 'Bb, Eb, Ab', accName: '3 Bemoles', rel: 'Cm', sig: -3 },
         'Ab': { acc: 'Bb, Eb, Ab, Db', accName: '4 Bemoles', rel: 'Fm', sig: -4 },
         'Db': { acc: 'Bb, Eb, Ab, Db, Gb', accName: '5 Bemoles', rel: 'Bbm', sig: -5 },
-        'Gb': { acc: 'Bb, Eb, Ab, Db, Gb, Cb', accName: '6 Bemoles', rel: 'Ebm', sig: -6 },
-        'Cb': { acc: 'Bb, Eb, Ab, Db, Gb, Cb, Fb', accName: '7 Bemoles', rel: 'Abm', sig: -7 },
     },
     init() {
-        try {
-            const btn = document.querySelector('#playScaleBtn');
-            if(btn) btn.onclick = () => this.playScale();
-            this.renderCircle();
-        } catch(e) { console.error("Error iniciando Círculo:", e); }
+        const btn = document.querySelector('#playScaleBtn');
+        if(btn) btn.onclick = () => this.playScale();
+        this.renderCircle();
     },
     renderCircle() {
         const svg = document.querySelector('#circleSvg');
@@ -95,15 +91,6 @@ const circleApp = {
             svg.appendChild(pathMinor);
         });
     },
-    /**
-     * Creates an SVG segment (sector) with text for a circular visualization.
-     * @param {number} angle - The starting angle in radians for the segment.
-     * @param {number} rInner - The inner radius of the segment.
-     * @param {number} rOuter - The outer radius of the segment.
-     * @param {string} text - The text content to display in the segment.
-     * @param {string} type - The segment type ('major' or 'minor') that determines styling and interactivity.
-     * @returns {SVGGElement} A group element containing the segment path and text.
-     */
     createSegment(angle, rInner, rOuter, text, type) {
         const cx = 160, cy = 160;
         const x1 = cx + rInner * Math.cos(angle); const y1 = cy + rInner * Math.sin(angle);
@@ -186,18 +173,16 @@ const circleApp = {
 const tunerApp = {
     isRunning: false, analyser: null, mediaStream: null, bufferLength: null, dataArray: null, rafId: null, needlePosition: 50,
     init() {
-        try {
-            const btn = document.getElementById('tunerToggleBtn');
-            const refBtn = document.getElementById('playRefBtn');
-            const sel = document.getElementById('refNoteSelect');
-            
-            if(btn) btn.addEventListener('click', () => this.toggle());
-            if(refBtn) refBtn.addEventListener('click', () => this.playReference());
-            
-            this.populateRefSelect();
-            this.resizeCanvas();
-            window.addEventListener('resize', () => this.resizeCanvas());
-        } catch(e) { console.error("Error iniciando Afinador:", e); }
+        const btn = document.getElementById('tunerToggleBtn');
+        const refBtn = document.getElementById('playRefBtn');
+        const sel = document.getElementById('refNoteSelect');
+        
+        if(btn) btn.addEventListener('click', () => this.toggle());
+        if(refBtn) refBtn.addEventListener('click', () => this.playReference());
+        
+        this.populateRefSelect();
+        this.resizeCanvas();
+        window.addEventListener('resize', () => this.resizeCanvas());
     },
     populateRefSelect() {
         const sel = document.getElementById('refNoteSelect');
@@ -371,17 +356,15 @@ const tunerApp = {
 const metronomeApp = {
     isPlaying: false, tempo: 100, lookahead: 25.0, scheduleAheadTime: 0.1, nextNoteTime: 0.0, currentBeat: 0, beatsPerBar: 4, timerID: null,
     init() {
-        try {
-            const bpmInput = document.getElementById('bpmInput');
-            const bpmSlider = document.getElementById('bpmSlider');
-            if(bpmInput) bpmInput.addEventListener('change', (e) => this.setBPM(e.target.value));
-            if(bpmSlider) bpmSlider.addEventListener('input', (e) => this.setBPM(e.target.value));
-            
-            const radios = document.getElementsByName('timeSig');
-            if(radios.length > 0) {
-                radios.forEach(r => r.addEventListener('change', (e) => this.setTimeSig(e.target.value)));
-            }
-        } catch(e) { console.error("Error iniciando Metrónomo:", e); }
+        const bpmInput = document.getElementById('bpmInput');
+        const bpmSlider = document.getElementById('bpmSlider');
+        if(bpmInput) bpmInput.addEventListener('change', (e) => this.setBPM(e.target.value));
+        if(bpmSlider) bpmSlider.addEventListener('input', (e) => this.setBPM(e.target.value));
+        
+        const radios = document.getElementsByName('timeSig');
+        if(radios.length > 0) {
+            radios.forEach(r => r.addEventListener('change', (e) => this.setTimeSig(e.target.value)));
+        }
     },
     setBPM(val) {
         this.tempo = parseInt(val);
@@ -461,19 +444,17 @@ const beatBoxApp = {
         { name: 'Clap', color: 'row-3', active: new Array(16).fill(false) }
     ],
     init() {
-        try {
-            const grid = document.getElementById('sequencerGrid'); 
-            if(!grid) return;
-            grid.innerHTML = '';
-            this.tracks.forEach((track, trackIdx) => {
-                const label = document.createElement('div'); label.className = 'track-label'; label.innerText = track.name; grid.appendChild(label);
-                for(let i=0; i<16; i++) {
-                    const btn = document.createElement('div'); btn.className = `step-btn ${track.color}`;
-                    btn.onclick = () => { track.active[i] = !track.active[i]; btn.classList.toggle('active', track.active[i]); };
-                    grid.appendChild(btn);
-                }
-            });
-        } catch(e) { console.error("Error iniciando BeatBox:", e); }
+        const grid = document.getElementById('sequencerGrid'); 
+        if(!grid) return;
+        grid.innerHTML = '';
+        this.tracks.forEach((track, trackIdx) => {
+            const label = document.createElement('div'); label.className = 'track-label'; label.innerText = track.name; grid.appendChild(label);
+            for(let i=0; i<16; i++) {
+                const btn = document.createElement('div'); btn.className = `step-btn ${track.color}`;
+                btn.onclick = () => { track.active[i] = !track.active[i]; btn.classList.toggle('active', track.active[i]); };
+                grid.appendChild(btn);
+            }
+        });
     },
     toggle() {
         this.isPlaying = !this.isPlaying;
@@ -500,12 +481,14 @@ const beatBoxApp = {
         if(this.isPlaying) this.timerID = requestAnimationFrame(() => this.scheduler());
     },
     playStep(step, time) {
-        // Highlight visual simplificado (resaltamos todos los botones activos del paso)
         setTimeout(() => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('step-current'));
-            // Nota: El selector CSS nth-child para grid puede ser complejo, simplificamos visualmente
+            // Grid is 17 columns (label + 16 steps). 
+            // We select buttons where (index % 17) == step + 1
             const allBtns = document.querySelectorAll('.step-btn');
-            // Highlight logic simplified for stability
+            allBtns.forEach((b, idx) => {
+                if ((idx + 1) % 17 === step + 1) b.classList.add('step-current');
+            });
         }, (time - getAudioContext().currentTime) * 1000);
 
         this.tracks.forEach((track, idx) => {
@@ -558,17 +541,7 @@ const earApp = {
         '5J': { semitones: 7, name: '5ta Justa' },
         '8va': { semitones: 12, name: 'Octava' }
     },
-    init() {
-        try {
-            const playBtn = document.getElementById('earPlayBtn');
-            if(playBtn) playBtn.addEventListener('click', () => this.playQuestion());
-            
-            const answerBtns = document.querySelectorAll('.ear-answer-btn');
-            answerBtns.forEach(btn => {
-                btn.addEventListener('click', () => this.checkAnswer(btn.dataset.interval));
-            });
-        } catch(e) { console.error("Error iniciando Ear Trainer:", e); }
-    },
+    init() {},
     playQuestion() {
         const keys = Object.keys(this.intervals);
         this.currentInterval = keys[Math.floor(Math.random() * keys.length)];
@@ -612,20 +585,18 @@ const earApp = {
 const droneApp = {
     activeOscillators: {},
     init() {
-        try {
-            const container = document.getElementById('droneKeys');
-            if(!container) return;
-            const naturalNotes = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
-            naturalNotes.forEach(note => {
-                const div = document.createElement('div'); div.className = 'drone-key'; div.innerText = note;
-                div.addEventListener('mousedown', () => this.playNote(note, div));
-                div.addEventListener('mouseup', () => this.stopNote(note, div));
-                div.addEventListener('mouseleave', () => this.stopNote(note, div));
-                div.addEventListener('touchstart', (e) => { e.preventDefault(); this.playNote(note, div); });
-                div.addEventListener('touchend', (e) => { e.preventDefault(); this.stopNote(note, div); });
-                container.appendChild(div);
-            });
-        } catch(e) { console.error("Error iniciando Drone:", e); }
+        const container = document.getElementById('droneKeys');
+        if(!container) return;
+        const naturalNotes = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"];
+        naturalNotes.forEach(note => {
+            const div = document.createElement('div'); div.className = 'drone-key'; div.innerText = note;
+            div.addEventListener('mousedown', () => this.playNote(note, div));
+            div.addEventListener('mouseup', () => this.stopNote(note, div));
+            div.addEventListener('mouseleave', () => this.stopNote(note, div));
+            div.addEventListener('touchstart', (e) => { e.preventDefault(); this.playNote(note, div); });
+            div.addEventListener('touchend', (e) => { e.preventDefault(); this.stopNote(note, div); });
+            container.appendChild(div);
+        });
     },
     playNote(note, uiElement) {
         initAudio();
@@ -652,7 +623,7 @@ const droneApp = {
     stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
 };
 
-/* --- 7. SONÓGRAFO CON ECUALIZADOR DE ARMÓNICOS --- */
+/* --- 7. SONÓGRAFO CON ECUALIZADOR Y SCANLINES --- */
 const spectrometerApp = {
     isRunning: false,
     analyser: null,
@@ -666,7 +637,7 @@ const spectrometerApp = {
 
     init() {
         try {
-            console.log("Iniciando SONÓGRAFO (Cascada) + EQ");
+            console.log("Iniciando SONÓGRAFO (Cascada + EQ + Scanlines)");
             const btn = document.getElementById('spectroToggleBtn');
             const harmonicBtn = document.getElementById('harmonicToggleBtn');
             
@@ -689,7 +660,7 @@ const spectrometerApp = {
 
             this.resizeCanvas();
             window.addEventListener('resize', () => this.resizeCanvas());
-        } catch(e) { console.error("Error iniciando:", e); }
+        } catch(e) { console.error("Error iniciando Sonógrafo:", e); }
     },
 
     resizeCanvas() {
@@ -707,22 +678,27 @@ const spectrometerApp = {
 
     toggleHarmonics(btnElement) {
         this.isHarmonicsBoosted = !this.isHarmonicsBoosted;
+        
+        // Crear Audio Context si no existe
         const ctx = getAudioContext();
 
         if (this.isHarmonicsBoosted) {
+            // --- ACTIVAR EQ ---
             btnElement.innerText = "ON";
             btnElement.style.background = "var(--success)";
             btnElement.style.color = "#000";
-            showToast("Ecualizador: ACTIVO (2kHz - 4kHz)");
+            showToast("Ecualizador de Armónicos: ACTIVO");
 
+            // Si ya está corriendo, ajustar el filtro existente
             if (this.harmonicFilter && this.isRunning) {
                 this.harmonicFilter.gain.linearRampToValueAtTime(12, ctx.currentTime + 0.1);
             }
         } else {
+            // --- DESACTIVAR EQ ---
             btnElement.innerText = "OFF";
             btnElement.style.background = "#333";
             btnElement.style.color = "#fff";
-            showToast("Ecualizador: INACTIVO");
+            showToast("Ecualizador de Armónicos: INACTIVO");
 
             if (this.harmonicFilter && this.isRunning) {
                 this.harmonicFilter.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
@@ -741,13 +717,15 @@ const spectrometerApp = {
             this.analyser = ctx.createAnalyser();
             this.analyser.fftSize = 4096; // Alta resolución para líneas finas
             
-            // Crear filtro para armónicos
+            // Crear el filtro de armónicos (Peaking Filter)
+            // Frecuencia: 2500Hz (Zona de formantes medios/agudos)
+            // Q: 1 (Ancho de banda medio)
             this.harmonicFilter = ctx.createBiquadFilter();
             this.harmonicFilter.type = 'peaking';
-            this.harmonicFilter.frequency.value = 2500; // Zona de formantes vocales
-            this.harmonicFilter.Q.value = 2.0; // Ancho de banda
-
-            // Aplicar estado inicial del EQ
+            this.harmonicFilter.frequency.value = 2500; 
+            this.harmonicFilter.Q.value = 2.0;
+            
+            // Aplicar estado del boost
             this.harmonicFilter.gain.value = this.isHarmonicsBoosted ? 12 : 0;
 
             // Conectar: Mic -> Filtro -> Analizador
@@ -788,10 +766,8 @@ const spectrometerApp = {
         }
     },
 
-        draw() {
+    draw() {
         if (!this.isRunning) return;
-        
-        // Programar el siguiente frame
         this.rafId = requestAnimationFrame(() => this.draw());
 
         const canvas = document.getElementById('spectroCanvas');
@@ -804,10 +780,10 @@ const spectrometerApp = {
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
 
-        // 1. DESPLAZAR (Scroll effect)
+        // 1. DESPLAZAR EL CONTENIDO A LA IZQUIERDA (EFECTO HISTORIA)
         ctx.drawImage(canvas, -this.speed, 0);
 
-        // 2. DIBUJAR COLUMNA NUEVA
+        // 2. DIBUJAR LA NUEVA COLUMNA DE DATOS EN EL BORDE DERECHO
         const xPos = w - this.speed;
         ctx.fillStyle = '#000000';
         ctx.fillRect(xPos, 0, this.speed, h);
@@ -816,37 +792,77 @@ const spectrometerApp = {
         // Aumentamos este valor para líneas más gordas y separadas
         const pixelStep = 3; 
         
-        // Crear imagen de datos para la nueva columna
+        // Crear imagen de datos de píxeles manualmente para la columna
         const imgData = ctx.createImageData(this.speed, h);
         const data = imgData.data;
 
+        // Recorrer cada píxel de altura (frecuencia)
+        // Mapeamos el alto del canvas (h) al bufferLength (2048 datos)
         for (let y = 0; y < h; y += pixelStep) {
-            // Invertir Y (0 es agudos arriba)
+            // Invertir Y: 0 es arriba (agudos), h es abajo (graves) en pantalla,
+            // pero en arrays 0 es graves. Ajustamos el índice:
             const percent = 1 - (y / h); 
             
-            // Mapeo Logarítmico
+            // Logaritmo para dar más espacio a los graves/medios (donde están las vocales)
             const index = Math.floor(Math.pow(percent, 2.5) * bufferLength);
+            
+            // Valor de amplitud (0-255)
             const safeIndex = Math.min(index, bufferLength - 1);
-            
             const value = dataArray[safeIndex];
-            
-            // Obtener color del mapa de calor
+
+            // Asignar color al píxel (R, G, B, A)
+            // Usamos una paleta tipo "Inferno": Negro -> Verde -> Amarillo -> Rojo
             const color = this.getHeatmapColor(value);
             
-            // Llenar el bloque vertical (pixelStep alto)
-            // Esto crea líneas horizontales sólidas y gordas
-            for (let x = 0; x < this.speed; x++) {
-                const cell = (y * this.speed + x) * 4;
-                data[cell] = color.r;     // R
-                data[cell + 1] = color.g; // G
-                data[cell + 2] = color.b; // B
-                data[cell + 3] = 255;   // Alpha (Opaco)
+            // Llenar los 'speed' píxeles de ancho con este color
+            // Dibujamos pixelStep alto
+            for (let py = y; py < y + pixelStep && py < h; py++) {
+                for (let x = 0; x < this.speed; x++) {
+                    const cell = (py * this.speed + x) * 4;
+                    data[cell] = color.r;     // R
+                    data[cell + 1] = color.g; // G
+                    data[cell + 2] = color.b; // B
+                    data[cell + 3] = 255;   // Alpha (opaco)
+                }
             }
         }
 
-        // Poner la imagen en el canvas
+        // Poner la imagen de datos en el canvas
         ctx.putImageData(imgData, xPos, 0);
     },
+
+    // Función auxiliar para generar colores (Mapa de Calor Verde->Rojo)
+    getHeatmapColor(value) {
+        // Si es silencio absoluto, devuelve Negro
+        if (value === 0) return { r: 0, g: 0, b: 0 };
+
+        // Normalizar valor de 0 a 1
+        const val = value / 255;
+        let r, g, b;
+
+        // --- INTERPOLACIÓN DE COLORES ---
+        // Queremos: Verde (Suave) -> Amarillo (Medio) -> Rojo (Fuerte)
+        
+        if (val < 0.5) {
+            // Fase 1: Verde a Amarillo (0.0 a 0.5)
+            // R sube: 0 -> 255
+            // G se mantiene: 255
+            // B se mantiene: 0
+            r = Math.floor(val * 2 * 255); 
+            g = 255;
+            b = 0;
+        } else {
+            // Fase 2: Amarillo a Rojo (0.5 a 1.0)
+            // R se mantiene: 255
+            // G baja: 255 -> 0
+            // B se mantiene: 0
+            r = 255;
+            g = Math.floor((1 - (val - 0.5) * 2) * 255);
+            b = 0;
+        }
+
+        return { r, g, b };
+    }
 };
 
 /* --- ROUTING DE INICIALIZACIÓN --- */
@@ -862,7 +878,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         console.log("App iniciada en:", path);
 
-        // Iniciar herramienta correcta
+        // Iniciar herramienta correcta basada en la URL
         if (path.includes('circle.html')) circleApp.init();
         else if (path.includes('tuner.html')) tunerApp.init();
         else if (path.includes('metronome.html')) metronomeApp.init();
