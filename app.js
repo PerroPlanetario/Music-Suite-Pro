@@ -819,33 +819,33 @@ const spectrometerApp = {
         ctx.putImageData(imgData, xPos, 0);
     },
 
-        // Función de colores: Mapa de Calor (Verde -> Rojo)
+        // Función de colores: Paleta "MAGMA PROFUNDA"
+    // Genera colores tipo: Negro -> Violeta -> Naranja -> Amarillo
+    // Esto da sensación de profundidad y máximo contraste
     getHeatmapColor(value) {
-        // Si es silencio absoluto, devuelve Negro
+        // Silencio absoluto es Negro
         if (value === 0) return { r: 0, g: 0, b: 0 };
 
-        // Normalizar valor de 0 a 1
-        const val = value / 255;
         let r, g, b;
-
-        // --- INTERPOLACIÓN DE COLORES ---
-        // Queremos: Verde (Suave) -> Amarillo (Medio) -> Rojo (Fuerte)
         
-        if (val < 0.5) {
-            // Fase 1: Verde a Amarillo (0.0 a 0.5)
-            // R sube: 0 -> 255
-            // G se mantiene: 255
-            // B se mantiene: 0
-            r = Math.floor(val * 2 * 255); 
-            g = 255;
-            b = 0;
-        } else {
-            // Fase 2: Amarillo a Rojo (0.5 a 1.0)
-            // R se mantiene: 255
-            // G baja: 255 -> 0
-            // B se mantiene: 0
+        // Normalizar valor (0 a 1)
+        const t = value / 255;
+
+        // --- INTERPOLACIÓN "MAGMA" ---
+        if (t < 0.33) {
+            // FASE 1: Negro a Violeta/Azul (Sonido suave o armónicos graves)
+            r = t * 3 * 100;       // R suave
+            g = 0;                  // Sin verde
+            b = t * 3 * 255;       // Azul/Violeta fuerte (Profundidad)
+        } else if (t < 0.66) {
+            // FASE 2: Violeta a Naranja/Rojo (Cuerpo de la voz)
             r = 255;
-            g = Math.floor((1 - (val - 0.5) * 2) * 255);
+            g = (t - 0.33) * 3 * 200; // Introduce rojo anaranjado
+            b = 255 - (t - 0.33) * 3 * 255; // El azul se apaga
+        } else {
+            // FASE 3: Rojo a Amarillo (Picos fuertes / "Beltting")
+            r = 255;
+            g = 255 - (1 - t) * 3 * 255; // Verde sube hasta 255
             b = 0;
         }
 
