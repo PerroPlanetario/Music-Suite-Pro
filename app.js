@@ -69,6 +69,8 @@ const circleApp = {
         'Eb': { acc: 'Bb, Eb, Ab', accName: '3 Bemoles', rel: 'Cm', sig: -3 },
         'Ab': { acc: 'Bb, Eb, Ab, Db', accName: '4 Bemoles', rel: 'Fm', sig: -4 },
         'Db': { acc: 'Bb, Eb, Ab, Db, Gb', accName: '5 Bemoles', rel: 'Bbm', sig: -5 },
+        'Gb': { acc: 'Bb, Eb, Ab, Db, Gb, Cb', accName: '6 Bemoles', rel: 'Ebm', sig: -6 },
+        'Cb': { acc: 'Bb, Eb, Ab, Db, Gb, Cb, Fb', accName: '7 Bemoles', rel: 'Abm', sig: -7 },
     },
     init() {
         try {
@@ -93,6 +95,15 @@ const circleApp = {
             svg.appendChild(pathMinor);
         });
     },
+    /**
+     * Creates an SVG segment (sector) with text for a circular visualization.
+     * @param {number} angle - The starting angle in radians for the segment.
+     * @param {number} rInner - The inner radius of the segment.
+     * @param {number} rOuter - The outer radius of the segment.
+     * @param {string} text - The text content to display in the segment.
+     * @param {string} type - The segment type ('major' or 'minor') that determines styling and interactivity.
+     * @returns {SVGGElement} A group element containing the segment path and text.
+     */
     createSegment(angle, rInner, rOuter, text, type) {
         const cx = 160, cy = 160;
         const x1 = cx + rInner * Math.cos(angle); const y1 = cy + rInner * Math.sin(angle);
@@ -547,7 +558,17 @@ const earApp = {
         '5J': { semitones: 7, name: '5ta Justa' },
         '8va': { semitones: 12, name: 'Octava' }
     },
-    init() {},
+    init() {
+        try {
+            const playBtn = document.getElementById('earPlayBtn');
+            if(playBtn) playBtn.addEventListener('click', () => this.playQuestion());
+            
+            const answerBtns = document.querySelectorAll('.ear-answer-btn');
+            answerBtns.forEach(btn => {
+                btn.addEventListener('click', () => this.checkAnswer(btn.dataset.interval));
+            });
+        } catch(e) { console.error("Error iniciando Ear Trainer:", e); }
+    },
     playQuestion() {
         const keys = Object.keys(this.intervals);
         this.currentInterval = keys[Math.floor(Math.random() * keys.length)];
@@ -695,6 +716,7 @@ const spectrometerApp = {
             showToast("Ecualizador: ACTIVO (2kHz - 4kHz)");
 
             if (this.harmonicFilter && this.isRunning) {
+                this.harmonicFilter.gain.cancelScheduledValues(ctx.currentTime);
                 this.harmonicFilter.gain.linearRampToValueAtTime(12, ctx.currentTime + 0.1);
             }
         } else {
@@ -704,6 +726,7 @@ const spectrometerApp = {
             showToast("Ecualizador: INACTIVO");
 
             if (this.harmonicFilter && this.isRunning) {
+                this.harmonicFilter.gain.cancelScheduledValues(ctx.currentTime);
                 this.harmonicFilter.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
             }
         }
@@ -767,10 +790,12 @@ const spectrometerApp = {
         }
     },
 
-    draw() {
+        draw() {
         if (!this.isRunning) return;
-        this.rafId = requestAnimationFrame(() => this.draw());
         
+        // Programar el siguiente frame
+        this.rafId = requestAnimationFrame(() => this.draw());
+
         const canvas = document.getElementById('spectroCanvas');
         if(!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -781,49 +806,47 @@ const spectrometerApp = {
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
 
-        // 1. DESPLAZAR EL CONTENIDO A LA IZQUIERDA (EFECTO SONÓGRAFO)
-        // Tomamos la imagen actual y la movemos 'speed' pixeles a la izquierda
+        // 1. DESPLAZAR (Scroll effect)
         ctx.drawImage(canvas, -this.speed, 0);
 
-        // 2. DIBUJAR LA NUEVA COLUMNA EN EL BORDE DERECHO
-        // Calculamos la posición X donde se dibuja lo nuevo
+        // 2. DIBUJAR COLUMNA NUEVA
         const xPos = w - this.speed;
-        
-        // Limpiamos el área donde vamos a dibujar (evitar artefactos visuales)
-        ctx.fillStyle = '#000';
+        ctx.fillStyle = '#000000';
         ctx.fillRect(xPos, 0, this.speed, h);
 
-        // 3. GENERAR IMAGEN DE DATOS (PIXEL A PIXEL)
-        // Creamos un buffer de imagen para la nueva columna
+        // --- CONFIGURACIÓN DE "SEPARACIÓN DE LÍNEAS" ---
+        // Aumentamos este valor para líneas más gordas y separadas
+        const pixelStep = 3; 
+        
+        // Crear imagen de datos para la nueva columna
         const imgData = ctx.createImageData(this.speed, h);
         const data = imgData.data;
 
-        // Recorremos la altura (eje Y = frecuencia)
-        for (let y = 0; y < h; y++) {
-            // Mapeamos Y al índice del array de frecuencias
-            // Y=0 es arriba (agudos), Y=h es abajo (graves). Invertimos:
-            const percent = 1 - (y / h);
+        for (let y = 0; y < h; y += pixelStep) {
+            // Invertir Y (0 es agudos arriba)
+            const percent = 1 - (y / h); 
             
-            // Aplicamos escala logarítmica para que los graves (vocales) ocupen más espacio
+            // Mapeo Logarítmico
             const index = Math.floor(Math.pow(percent, 2.5) * bufferLength);
             const safeIndex = Math.min(index, bufferLength - 1);
             
             const value = dataArray[safeIndex];
             
-            // Obtenemos color del mapa de calor
+            // Obtener color del mapa de calor
             const color = this.getHeatmapColor(value);
             
-            // Llenamos los 'speed' píxeles de ancho con este color
+            // Llenar el bloque vertical (pixelStep alto)
+            // Esto crea líneas horizontales sólidas y gordas
             for (let x = 0; x < this.speed; x++) {
                 const cell = (y * this.speed + x) * 4;
                 data[cell] = color.r;     // R
                 data[cell + 1] = color.g; // G
                 data[cell + 2] = color.b; // B
-                data[cell + 3] = 255;   // Alpha
+                data[cell + 3] = 255;   // Alpha (Opaco)
             }
         }
-        
-        // 4. PONER LA NUEVA COLUMNA EN EL CANVAS
+
+        // Poner la imagen en el canvas
         ctx.putImageData(imgData, xPos, 0);
     },
 
