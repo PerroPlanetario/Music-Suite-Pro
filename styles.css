@@ -230,3 +230,10 @@ input, select {
     .note-name { font-size: 4rem; }
     .waveform-box { height: 60px; }
 }
+
+/* Estilos opcionales para la tarjeta del index si hiciste falta */
+.card:hover {
+    transform: translateY(-5px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+}

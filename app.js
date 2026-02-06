@@ -630,7 +630,117 @@ const droneApp = {
     },
     stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
 };
+/* --- 7. ESPECTRÓMETRO --- */
+const spectrometerApp = {
+    isRunning: false, analyser: null, mediaStream: null, rafId: null,
+    init() {
+        try {
+            const btn = document.getElementById('spectroToggleBtn');
+            if(btn) btn.addEventListener('click', () => this.toggle());
+            this.resizeCanvas();
+            window.addEventListener('resize', () => this.resizeCanvas());
+        } catch(e) { console.error("Error iniciando Espectrómetro:", e); }
+    },
+    resizeCanvas() {
+        const canvas = document.getElementById('spectroCanvas');
+        if(canvas) {
+            canvas.width = canvas.parentElement.clientWidth; 
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+    },
+    async toggle() {
+        if (this.isRunning) this.stop(); else this.start();
+    },
+    async start() {
+        try {
+            const ctx = getAudioContext();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
+            this.mediaStream = ctx.createMediaStreamSource(stream);
+            this.analyser = ctx.createAnalyser();
+            this.analyser.fftSize = 2048; // Resolución del espectro
+            this.mediaStream.connect(this.analyser);
+            this.isRunning = true;
+            const btn = document.getElementById('spectroToggleBtn');
+            if(btn) {
+                btn.classList.add('active-state');
+                btn.querySelector('span').innerText = "Detener";
+            }
+            this.draw();
+        } catch (e) { console.error(e); showToast("Error al acceder al micrófono."); }
+    },
+    stop() {
+        if (this.mediaStream) { this.mediaStream.disconnect(); this.mediaStream = null; }
+        if (this.rafId) cancelAnimationFrame(this.rafId);
+        this.isRunning = false;
+        const btn = document.getElementById('spectroToggleBtn');
+        if(btn) {
+            btn.classList.remove('active-state');
+            btn.querySelector('span').innerText = "Iniciar Micrófono";
+        }
+        const canvas = document.getElementById('spectroCanvas');
+        if(canvas) {
+            const ctx = canvas.getContext('2d'); 
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        const dbLabel = document.getElementById('maxDb');
+        if(dbLabel) dbLabel.innerText = "-inf";
+    },
+    draw() {
+        if (!this.isRunning) return;
+        this.rafId = requestAnimationFrame(() => this.draw());
 
+        const canvas = document.getElementById('spectroCanvas');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // Obtener datos de frecuencia (0 a 255)
+        const bufferLength = this.analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        this.analyser.getByteFrequencyData(dataArray);
+
+        // Fondo semi-transparente para efecto estela
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, w, h);
+
+        const barWidth = (w / bufferLength) * 2.5;
+        let barHeight;
+        let x = 0;
+
+        // Crear gradiente de color
+        const gradient = ctx.createLinearGradient(0, h, 0, 0);
+        gradient.addColorStop(0, '#00e5ff');   // Agudos (Azul)
+        gradient.addColorStop(0.5, '#ff0055'); // Medios (Rosa)
+        gradient.addColorStop(1, '#ffcc00');  // Graves (Amarillo)
+
+        ctx.fillStyle = gradient;
+
+        let maxVal = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            barHeight = dataArray[i];
+            
+            // Normalizar altura al canvas (escalar un poco para que se vea bien)
+            const scaledHeight = (barHeight / 255) * h;
+
+            // Dibujar barra
+            ctx.fillRect(x, h - scaledHeight, barWidth, scaledHeight);
+
+            x += barWidth + 1; // +1 de espacio entre barras
+
+            if (barHeight > maxVal) maxVal = barHeight;
+        }
+
+        // Actualizar etiqueta de dB (aprox)
+        const dbLabel = document.getElementById('maxDb');
+        if(dbLabel && maxVal > 0) {
+            // Fórmula simple de conversión visual
+            const db = Math.round(10 * Math.log10(maxVal / 255) * 2); 
+            dbLabel.innerText = db > 0 ? db : "-inf";
+        }
+    }
+};
 /* --- ROUTING DE INICIALIZACIÓN --- */
 window.addEventListener('DOMContentLoaded', () => {
     try {
