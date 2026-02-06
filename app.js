@@ -623,7 +623,7 @@ const droneApp = {
     stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
 };
 
-/* --- 7. SONÓGRAFO CON ECUALIZADOR Y SCANLINES --- */
+/* --- 7. SONÓGRAFO CON ECUALIZADOR DE ARMÓNICOS --- */
 const spectrometerApp = {
     isRunning: false,
     analyser: null,
@@ -637,7 +637,7 @@ const spectrometerApp = {
 
     init() {
         try {
-            console.log("Iniciando SONÓGRAFO (Cascada + EQ + Scanlines)");
+            console.log("Iniciando SONÓGRAFO (Cascada) + EQ");
             const btn = document.getElementById('spectroToggleBtn');
             const harmonicBtn = document.getElementById('harmonicToggleBtn');
             
@@ -660,7 +660,7 @@ const spectrometerApp = {
 
             this.resizeCanvas();
             window.addEventListener('resize', () => this.resizeCanvas());
-        } catch(e) { console.error("Error iniciando Sonógrafo:", e); }
+        } catch(e) { console.error("Error iniciando:", e); }
     },
 
     resizeCanvas() {
@@ -678,27 +678,22 @@ const spectrometerApp = {
 
     toggleHarmonics(btnElement) {
         this.isHarmonicsBoosted = !this.isHarmonicsBoosted;
-        
-        // Crear Audio Context si no existe
         const ctx = getAudioContext();
 
         if (this.isHarmonicsBoosted) {
-            // --- ACTIVAR EQ ---
             btnElement.innerText = "ON";
             btnElement.style.background = "var(--success)";
             btnElement.style.color = "#000";
-            showToast("Ecualizador de Armónicos: ACTIVO");
+            showToast("Ecualizador: ACTIVO (2kHz - 4kHz)");
 
-            // Si ya está corriendo, ajustar el filtro existente
             if (this.harmonicFilter && this.isRunning) {
                 this.harmonicFilter.gain.linearRampToValueAtTime(12, ctx.currentTime + 0.1);
             }
         } else {
-            // --- DESACTIVAR EQ ---
             btnElement.innerText = "OFF";
             btnElement.style.background = "#333";
             btnElement.style.color = "#fff";
-            showToast("Ecualizador de Armónicos: INACTIVO");
+            showToast("Ecualizador: INACTIVO");
 
             if (this.harmonicFilter && this.isRunning) {
                 this.harmonicFilter.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
@@ -717,15 +712,13 @@ const spectrometerApp = {
             this.analyser = ctx.createAnalyser();
             this.analyser.fftSize = 4096; // Alta resolución para líneas finas
             
-            // Crear el filtro de armónicos (Peaking Filter)
-            // Frecuencia: 2500Hz (Zona de formantes medios/agudos)
-            // Q: 1 (Ancho de banda medio)
+            // Crear filtro para armónicos
             this.harmonicFilter = ctx.createBiquadFilter();
             this.harmonicFilter.type = 'peaking';
-            this.harmonicFilter.frequency.value = 2500; 
-            this.harmonicFilter.Q.value = 2.0;
-            
-            // Aplicar estado del boost
+            this.harmonicFilter.frequency.value = 2500; // Zona de formantes vocales
+            this.harmonicFilter.Q.value = 2.0; // Ancho de banda
+
+            // Aplicar estado inicial del EQ
             this.harmonicFilter.gain.value = this.isHarmonicsBoosted ? 12 : 0;
 
             // Conectar: Mic -> Filtro -> Analizador
@@ -766,8 +759,10 @@ const spectrometerApp = {
         }
     },
 
-    draw() {
+        draw() {
         if (!this.isRunning) return;
+        
+        // Programar el siguiente frame
         this.rafId = requestAnimationFrame(() => this.draw());
 
         const canvas = document.getElementById('spectroCanvas');
@@ -780,10 +775,10 @@ const spectrometerApp = {
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
 
-        // 1. DESPLAZAR EL CONTENIDO A LA IZQUIERDA (EFECTO HISTORIA)
+        // 1. DESPLAZAR (Scroll effect)
         ctx.drawImage(canvas, -this.speed, 0);
 
-        // 2. DIBUJAR LA NUEVA COLUMNA DE DATOS EN EL BORDE DERECHO
+        // 2. DIBUJAR COLUMNA NUEVA
         const xPos = w - this.speed;
         ctx.fillStyle = '#000000';
         ctx.fillRect(xPos, 0, this.speed, h);
@@ -792,46 +787,39 @@ const spectrometerApp = {
         // Aumentamos este valor para líneas más gordas y separadas
         const pixelStep = 3; 
         
-        // Crear imagen de datos de píxeles manualmente para la columna
+        // Crear imagen de datos para la nueva columna
         const imgData = ctx.createImageData(this.speed, h);
         const data = imgData.data;
 
-        // Recorrer cada píxel de altura (frecuencia)
-        // Mapeamos el alto del canvas (h) al bufferLength (2048 datos)
         for (let y = 0; y < h; y += pixelStep) {
-            // Invertir Y: 0 es arriba (agudos), h es abajo (graves) en pantalla,
-            // pero en arrays 0 es graves. Ajustamos el índice:
+            // Invertir Y (0 es agudos arriba)
             const percent = 1 - (y / h); 
             
-            // Logaritmo para dar más espacio a los graves/medios (donde están las vocales)
+            // Mapeo Logarítmico
             const index = Math.floor(Math.pow(percent, 2.5) * bufferLength);
-            
-            // Valor de amplitud (0-255)
             const safeIndex = Math.min(index, bufferLength - 1);
+            
             const value = dataArray[safeIndex];
-
-            // Asignar color al píxel (R, G, B, A)
-            // Usamos una paleta tipo "Inferno": Negro -> Verde -> Amarillo -> Rojo
+            
+            // Obtener color del mapa de calor
             const color = this.getHeatmapColor(value);
             
-            // Llenar los 'speed' píxeles de ancho con este color
-            // Dibujamos pixelStep alto
-            for (let py = y; py < y + pixelStep && py < h; py++) {
-                for (let x = 0; x < this.speed; x++) {
-                    const cell = (py * this.speed + x) * 4;
-                    data[cell] = color.r;     // R
-                    data[cell + 1] = color.g; // G
-                    data[cell + 2] = color.b; // B
-                    data[cell + 3] = 255;   // Alpha (opaco)
-                }
+            // Llenar el bloque vertical (pixelStep alto)
+            // Esto crea líneas horizontales sólidas y gordas
+            for (let x = 0; x < this.speed; x++) {
+                const cell = (y * this.speed + x) * 4;
+                data[cell] = color.r;     // R
+                data[cell + 1] = color.g; // G
+                data[cell + 2] = color.b; // B
+                data[cell + 3] = 255;   // Alpha (Opaco)
             }
         }
 
-        // Poner la imagen de datos en el canvas
+        // Poner la imagen en el canvas
         ctx.putImageData(imgData, xPos, 0);
     },
 
-    // Función auxiliar para generar colores (Mapa de Calor Verde->Rojo)
+        // Función de colores: Mapa de Calor (Verde -> Rojo)
     getHeatmapColor(value) {
         // Si es silencio absoluto, devuelve Negro
         if (value === 0) return { r: 0, g: 0, b: 0 };
