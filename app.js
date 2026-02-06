@@ -759,10 +759,8 @@ const spectrometerApp = {
         }
     },
 
-        draw() {
+            draw() {
         if (!this.isRunning) return;
-        
-        // Programar el siguiente frame
         this.rafId = requestAnimationFrame(() => this.draw());
 
         const canvas = document.getElementById('spectroCanvas');
@@ -775,7 +773,7 @@ const spectrometerApp = {
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
 
-        // 1. DESPLAZAR (Scroll effect)
+        // 1. DESPLAZAR (Efecto Historia)
         ctx.drawImage(canvas, -this.speed, 0);
 
         // 2. DIBUJAR COLUMNA NUEVA
@@ -783,69 +781,67 @@ const spectrometerApp = {
         ctx.fillStyle = '#000000';
         ctx.fillRect(xPos, 0, this.speed, h);
 
-        // --- CONFIGURACIÓN DE "SEPARACIÓN DE LÍNEAS" ---
-        // Aumentamos este valor para líneas más gordas y separadas
-        const pixelStep = 3; 
+        // 3. MUESTREO CONTINUO (Sin gaps tipo Scanlines)
+        // Para precisión estilo Google, dibujamos píxel a píxel (step = 1)
+        const pixelStep = 1; 
         
-        // Crear imagen de datos para la nueva columna
         const imgData = ctx.createImageData(this.speed, h);
         const data = imgData.data;
 
         for (let y = 0; y < h; y += pixelStep) {
-            // Invertir Y (0 es agudos arriba)
+            // Mapeo Y invertido
             const percent = 1 - (y / h); 
             
-            // Mapeo Logarítmico
+            // Mapeo Logarítmico para distribución de frecuencias correcta
             const index = Math.floor(Math.pow(percent, 2.5) * bufferLength);
             const safeIndex = Math.min(index, bufferLength - 1);
             
             const value = dataArray[safeIndex];
             
-            // Obtener color del mapa de calor
+            // Obtener color de la paleta Clásica (Google Style)
             const color = this.getHeatmapColor(value);
             
-            // Llenar el bloque vertical (pixelStep alto)
-            // Esto crea líneas horizontales sólidas y gordas
+            // Llenar píxel
             for (let x = 0; x < this.speed; x++) {
                 const cell = (y * this.speed + x) * 4;
-                data[cell] = color.r;     // R
-                data[cell + 1] = color.g; // G
-                data[cell + 2] = color.b; // B
-                data[cell + 3] = 255;   // Alpha (Opaco)
+                data[cell] = color.r;
+                data[cell + 1] = color.g;
+                data[cell + 2] = color.b;
+                data[cell + 3] = 255; // Opaco total
             }
         }
 
-        // Poner la imagen en el canvas
         ctx.putImageData(imgData, xPos, 0);
     },
 
-        // Función de colores: Paleta "MAGMA PROFUNDA"
-    // Genera colores tipo: Negro -> Violeta -> Naranja -> Amarillo
-    // Esto da sensación de profundidad y máximo contraste
+    // Función de colores: Paleta CLÁSICA CIENTÍFICA (Blue -> Green -> Yellow -> Red)
+    // Esta es la paleta usada en Audacity, Praat y Google Experiments para máxima precisión.
     getHeatmapColor(value) {
         // Silencio absoluto es Negro
         if (value === 0) return { r: 0, g: 0, b: 0 };
 
         let r, g, b;
-        
-        // Normalizar valor (0 a 1)
         const t = value / 255;
 
-        // --- INTERPOLACIÓN "MAGMA" ---
-        if (t < 0.33) {
-            // FASE 1: Negro a Violeta/Azul (Sonido suave o armónicos graves)
-            r = t * 3 * 100;       // R suave
-            g = 0;                  // Sin verde
-            b = t * 3 * 255;       // Azul/Violeta fuerte (Profundidad)
-        } else if (t < 0.66) {
-            // FASE 2: Violeta a Naranja/Rojo (Cuerpo de la voz)
-            r = 255;
-            g = (t - 0.33) * 3 * 200; // Introduce rojo anaranjado
-            b = 255 - (t - 0.33) * 3 * 255; // El azul se apaga
+        if (t < 0.25) {
+            // Fase 1: Negro a Azul (0% - 25%)
+            r = 0;
+            g = 0;
+            b = Math.floor(t * 4 * 255);
+        } else if (t < 0.5) {
+            // Fase 2: Azul a Verde (25% - 50%)
+            r = 0;
+            g = Math.floor((t - 0.25) * 4 * 255);
+            b = 255;
+        } else if (t < 0.75) {
+            // Fase 3: Verde a Amarillo (50% - 75%)
+            r = Math.floor((t - 0.5) * 4 * 255);
+            g = 255;
+            b = 0;
         } else {
-            // FASE 3: Rojo a Amarillo (Picos fuertes / "Beltting")
+            // Fase 4: Amarillo a Rojo (75% - 100%)
             r = 255;
-            g = 255 - (1 - t) * 3 * 255; // Verde sube hasta 255
+            g = Math.floor((1.0 - t) * 4 * 255);
             b = 0;
         }
 
