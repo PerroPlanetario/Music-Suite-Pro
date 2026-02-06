@@ -631,37 +631,44 @@ const droneApp = {
     stopAll() { Object.keys(this.activeOscillators).forEach(note => this.stopNote(note, this.activeOscillators[note].uiElement)); }
 };
 
-/* --- 7. ESPECTRÓMETRO (MEJORADO PARA VOCES) --- */
+/* --- 7. SONÓGRAFO CON ECUALIZADOR DE ARMÓNICOS --- */
 const spectrometerApp = {
     isRunning: false,
     analyser: null,
     mediaStream: null,
     rafId: null,
+    speed: 2, // Velocidad de desplazamiento
+    
+    // Nodos de Audio para el EQ
+    harmonicFilter: null, 
+    isHarmonicsBoosted: false,
 
     init() {
         try {
-            console.log(">>> INICIALIZANDO ESPECTRÓMETRO V2 (LOGARÍTMICO) <<<");
+            console.log("Iniciando SONÓGRAFO (Cascada) + EQ");
             const btn = document.getElementById('spectroToggleBtn');
+            const harmonicBtn = document.getElementById('harmonicToggleBtn');
             
-            if (!btn) {
-                console.error("No se encontró el botón 'spectroToggleBtn'");
-                return;
-            }
+            if (!btn) return;
             
-            // Clonar botón para limpiar eventos viejos
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
-            
-            newBtn.addEventListener('click', () => {
-                console.log("Botón clicado");
-                this.toggle();
-            });
+            newBtn.addEventListener('click', () => this.toggle());
+
+            // Evento del botón de Armonicos
+            if(harmonicBtn) {
+                harmonicBtn.addEventListener('click', () => this.toggleHarmonics(harmonicBtn));
+            }
+
+            // Slider de velocidad
+            const speedSlider = document.getElementById('speedSlider');
+            if(speedSlider) {
+                speedSlider.addEventListener('input', (e) => { this.speed = parseInt(e.target.value); });
+            }
 
             this.resizeCanvas();
             window.addEventListener('resize', () => this.resizeCanvas());
-        } catch(e) { 
-            console.error("Error iniciando Espectrómetro:", e); 
-        }
+        } catch(e) { console.error("Error iniciando:", e); }
     },
 
     resizeCanvas() {
@@ -677,20 +684,54 @@ const spectrometerApp = {
         else this.start();
     },
 
+    toggleHarmonics(btnElement) {
+        this.isHarmonicsBoosted = !this.isHarmonicsBoosted;
+        const ctx = getAudioContext();
+
+        if (this.isHarmonicsBoosted) {
+            btnElement.innerText = "ON";
+            btnElement.style.background = "var(--success)";
+            btnElement.style.color = "#000";
+            showToast("Ecualizador: ACTIVO (2kHz - 4kHz)");
+
+            if (this.harmonicFilter && this.isRunning) {
+                this.harmonicFilter.gain.linearRampToValueAtTime(12, ctx.currentTime + 0.1);
+            }
+        } else {
+            btnElement.innerText = "OFF";
+            btnElement.style.background = "#333";
+            btnElement.style.color = "#fff";
+            showToast("Ecualizador: INACTIVO");
+
+            if (this.harmonicFilter && this.isRunning) {
+                this.harmonicFilter.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
+            }
+        }
+    },
+
     async start() {
         try {
-            console.log("Iniciando micrófono con FFT 2048...");
             const ctx = getAudioContext();
             const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
             
             this.mediaStream = ctx.createMediaStreamSource(stream);
+            
+            // --- CONFIGURACIÓN AUDIO ---
             this.analyser = ctx.createAnalyser();
+            this.analyser.fftSize = 4096; // Alta resolución para líneas finas
             
-            // CAMBIO CLAVE: Mayor resolución (2048) para ver más detalle en vocales
-            this.analyser.fftSize = 2048; 
-            
-            // El stream se conecta al analizador, NO a los altavoces (para evitar feedback)
-            this.mediaStream.connect(this.analyser);
+            // Crear filtro para armónicos
+            this.harmonicFilter = ctx.createBiquadFilter();
+            this.harmonicFilter.type = 'peaking';
+            this.harmonicFilter.frequency.value = 2500; // Zona de formantes vocales
+            this.harmonicFilter.Q.value = 2.0; // Ancho de banda
+
+            // Aplicar estado inicial del EQ
+            this.harmonicFilter.gain.value = this.isHarmonicsBoosted ? 12 : 0;
+
+            // Conectar: Mic -> Filtro -> Analizador
+            this.mediaStream.connect(this.harmonicFilter);
+            this.harmonicFilter.connect(this.analyser);
             
             this.isRunning = true;
             
@@ -702,17 +743,14 @@ const spectrometerApp = {
             this.draw();
             
         } catch (e) { 
-            console.error("Error al iniciar micrófono:", e); 
+            console.error("Error al iniciar:", e); 
             showToast("Error: " + e.message); 
         }
     },
 
     stop() {
-        console.log("Deteniendo...");
-        if (this.mediaStream) { 
-            this.mediaStream.disconnect(); 
-            this.mediaStream = null; 
-        }
+        if (this.mediaStream) { this.mediaStream.disconnect(); this.mediaStream = null; }
+        if (this.harmonicFilter) { this.harmonicFilter.disconnect(); this.harmonicFilter = null; }
         if (this.rafId) cancelAnimationFrame(this.rafId);
         this.isRunning = false;
         
@@ -732,54 +770,94 @@ const spectrometerApp = {
     draw() {
         if (!this.isRunning) return;
         this.rafId = requestAnimationFrame(() => this.draw());
-
+        
         const canvas = document.getElementById('spectroCanvas');
         if(!canvas) return;
         const ctx = canvas.getContext('2d');
         const w = canvas.width;
         const h = canvas.height;
 
-        const bufferLength = this.analyser.frequencyBinCount; // 1024 (mitad de 2048)
+        const bufferLength = this.analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
 
-        // Fondo negro con efecto "residual" muy leve (0.2) para que no parpadee tanto
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.fillRect(0, 0, w, h);
+        // 1. DESPLAZAR EL CONTENIDO A LA IZQUIERDA (EFECTO SONÓGRAFO)
+        // Tomamos la imagen actual y la movemos 'speed' pixeles a la izquierda
+        ctx.drawImage(canvas, -this.speed, 0);
 
-        // Gradiente de colores para las barras
-        const gradient = ctx.createLinearGradient(0, h, 0, 0);
-        gradient.addColorStop(0, '#00e5ff');   // Graves (Azul)
-        gradient.addColorStop(0.4, '#00ff88'); // Medios (Verde)
-        gradient.addColorStop(0.7, '#ffcc00'); // Altos (Amarillo)
-        gradient.addColorStop(1, '#ff0055');   // Muy Altos (Rojo)
-        ctx.fillStyle = gradient;
+        // 2. DIBUJAR LA NUEVA COLUMNA EN EL BORDE DERECHO
+        // Calculamos la posición X donde se dibuja lo nuevo
+        const xPos = w - this.speed;
+        
+        // Limpiamos el área donde vamos a dibujar (evitar artefactos visuales)
+        ctx.fillStyle = '#000';
+        ctx.fillRect(xPos, 0, this.speed, h);
 
-        // Número de barras visuales (menos es mejor para ver forma de ondas de voz)
-        const numBars = 64; 
-        const barWidth = w / numBars;
+        // 3. GENERAR IMAGEN DE DATOS (PIXEL A PIXEL)
+        // Creamos un buffer de imagen para la nueva columna
+        const imgData = ctx.createImageData(this.speed, h);
+        const data = imgData.data;
 
-        for (let i = 0; i < numBars; i++) {
-            // MAPEO LOGARÍTMICO
-            // Esto estira las frecuencias bajas (donde están las vocales) y comprime las altas.
-            // La fórmula Math.pow(index / numBars, 2) hace esa curva.
-            const percent = i / numBars;
-            // Exponente 2 o 3 funciona bien para voz. 2 es más suave, 3 más extremo.
-            const index = Math.floor(Math.pow(percent, 2.5) * bufferLength);
+        // Recorremos la altura (eje Y = frecuencia)
+        for (let y = 0; y < h; y++) {
+            // Mapeamos Y al índice del array de frecuencias
+            // Y=0 es arriba (agudos), Y=h es abajo (graves). Invertimos:
+            const percent = 1 - (y / h);
             
-            // Asegurar que no nos salimos del array
+            // Aplicamos escala logarítmica para que los graves (vocales) ocupen más espacio
+            const index = Math.floor(Math.pow(percent, 2.5) * bufferLength);
             const safeIndex = Math.min(index, bufferLength - 1);
             
             const value = dataArray[safeIndex];
             
-            // Altura de la barra
-            const barHeight = (value / 255) * h;
-
-            // Dibujar barra
-            // x se calcula normalmente
-            const x = i * barWidth;
-            ctx.fillRect(x, h - barHeight, barWidth - 2, barHeight); // -2 para dejar un pequeño espacio
+            // Obtenemos color del mapa de calor
+            const color = this.getHeatmapColor(value);
+            
+            // Llenamos los 'speed' píxeles de ancho con este color
+            for (let x = 0; x < this.speed; x++) {
+                const cell = (y * this.speed + x) * 4;
+                data[cell] = color.r;     // R
+                data[cell + 1] = color.g; // G
+                data[cell + 2] = color.b; // B
+                data[cell + 3] = 255;   // Alpha
+            }
         }
+        
+        // 4. PONER LA NUEVA COLUMNA EN EL CANVAS
+        ctx.putImageData(imgData, xPos, 0);
+    },
+
+       // Función de colores: Mapa de Calor (Verde -> Rojo)
+    getHeatmapColor(value) {
+        // Si es silencio absoluto, devuelve Negro
+        if (value === 0) return { r: 0, g: 0, b: 0 };
+
+        // Normalizar valor de 0 a 1
+        const val = value / 255;
+        let r, g, b;
+
+        // --- INTERPOLACIÓN DE COLORES ---
+        // Queremos: Verde (Suave) -> Amarillo (Medio) -> Rojo (Fuerte)
+        
+        if (val < 0.5) {
+            // Fase 1: Verde a Amarillo (0.0 a 0.5)
+            // R sube: 0 -> 255
+            // G se mantiene: 255
+            // B se mantiene: 0
+            r = Math.floor(val * 2 * 255); 
+            g = 255;
+            b = 0;
+        } else {
+            // Fase 2: Amarillo a Rojo (0.5 a 1.0)
+            // R se mantiene: 255
+            // G baja: 255 -> 0
+            // B se mantiene: 0
+            r = 255;
+            g = Math.floor((1 - (val - 0.5) * 2) * 255);
+            b = 0;
+        }
+
+        return { r, g, b };
     }
 };
 
